@@ -420,8 +420,163 @@ vgCreatePaint = error_check(vg.vgCreatePaint)
 # void vgDestroyPaint(VGPaint paint)
 vg.vgDestroyPaint.argtypes = (vhandle,)
 vg.vgDestroyPaint.restype = None
-# Errors: None but OutOfMemoryError
+# Errors: BadHandleError
 vgDestroyPaint = error_check(vg.vgDestroyPaint)
+
+############### 9.1.2 ###############
+
+# void vgSetPaint(VGPaint paint, VGbitfield paintModes)
+vg.vgSetPaint.argtypes = (vhandle, bitfield)
+vg.vgSetPaint.restype = None
+# Errors: BadHandleError, IllegalArgumentError
+vgSetPaint = error_check(vg.vgSetPaint)
+
+# VGPaint vgGetPaint(VGPaintMode paintMode)
+vg.vgGetPaint.argtypes = (enum,)
+vg.vgGetPaint.restype = vhandle
+# Errors: IllegalArgumentError
+vgGetPaint = error_check(vg.vgGetPaint)
+
+################ 9.2 ################
+
+# void vgSetColor(VGPaint paint, VGuint rgba)
+vg.vgSetColor.argtypes = (vhandle, c_uint)
+vg.vgSetColor.restype = None
+# Errors: BadHandleError
+vgSetColor = error_check(vg.vgSetColor)
+
+# VGuint vgGetColor(VGPaint paint)
+vg.vgGetColor.argtypes = (vhandle,)
+vg.vgGetColor.restype = c_uint
+# Errors: BadHandleError
+vgGetColor = error_check(vg.vgGetColor)
+
+################ 9.4 ################
+
+# void vgPaintPattern(VGPaint paint, VGImage pattern)
+vg.vgPaintPattern.argtypes = (vhandle, vhandle)
+vg.vgPaintPattern.restype = None
+# Errors: BadHandleError, ImageInUseError
+vgPaintPattern = error_check(vg.vgPaintPattern)
+
+################ 10.3 ###############
+
+# VGImage vgCreateImage(VGImageFormat format, VGint width, VGint height,
+#                       VGbitfield allowedQuality)
+vg.vgCreateImage.argtypes = (enum, c_int, c_int, bitfield)
+vg.vgCreateImage.restype = vhandle
+# Errors: UnsupportedImageFormatError, IllegalArgumentError
+vgCreateImage = error_check(vg.vgCreateImage)
+
+# void vgDestroyImage(VGImage image)
+vg.vgDestroyImage.argtypes = (vhandle,)
+vg.vgDestroyImage.restype = None
+# Errors: BadHandleError
+vgDestroyImage = error_check(vg.vgDestroyImage)
+
+################ 10.5 ###############
+
+# void vgClearImage(VGImage image, VGint x, VGint y, VGint width, VGint height)
+vg.vgClearImage.argtypes = (vhandle, c_int, c_int, c_int, c_int)
+vg.vgClearImage.restype = None
+# Errors: BadHandleError, ImageInUseError, IllegalArgumentError
+vgClearImage = error_check(vg.vgClearImage)
+
+# void vgImageSubData(VGImage image, const void * data, VGint dataStride,
+#                     VGImageFormat dataFormat, VGint x, VGint y,
+#                     VGint width, VGint height)
+vg.vgImageSubData.argtypes = (vhandle, c_void_p, c_int, enum, c_int, c_int,
+                              c_int, c_int)
+vg.vgImageSubData.restype = None
+# Errors: BadHandleError, ImageInUseError, UnsupportedImageFormatError,
+#         IllegalArgumentError
+vgImageSubData = error_check(vg.vgImageSubData)
+
+# void vgGetImageSubData(VGImage image, void * data, VGint dataStride,
+#                        VGImageFormat dataFormat, VGint x, VGint y,
+#                        VGint width, VGint height)
+vg.vgGetImageSubData.argtypes = (vhandle, c_void_p, c_int, enum, c_int, c_int,
+                                 c_int, c_int)
+vg.vgGetImageSubData.restype = None
+# Errors: BadHandleError, ImageInUseError, UnsupportedImageFormatError,
+#         IllegalArgumentError
+vgGetImageSubData = error_check(vg.vgGetImageSubData)
+
+################ 10.6 ###############
+
+# VGImage vgChildImage(VGImage parent, VGint x, VGint y,
+#                      VGint width, VGint height)
+vg.vgChildImage.argtypes = (vhandle, c_int, c_int, c_int, c_int)
+vg.vgChildImage.restype = vhandle
+# Errors: BadHandleError, ImageInUseError, IllegalArgumentError
+vgChildImage = error_check(vg.vgChildImage)
+
+# VGImage vgGetParent(VGImage image)
+vg.vgGetParent.argtypes = (vhandle,)
+vg.vgGetParent.restype = vhandle
+# Errors: BadHandleError, ImageInUseError
+vgGetParent = error_check(vg.vgGetParent)
+
+################ 10.7 ###############
+
+# void vgCopyImage(VGImage dst, VGint dx, VGint dy, VGImage src,
+#                  VGint sx, VGint sy, VGint width, VGint height,
+#                  VGboolean dither)
+vg.vgCopyImage.argtypes = (vhandle, c_int, c_int, vhandle, c_int, c_int, c_int,
+                           c_int, vbool)
+vg.vgCopyImage.restype = None
+# Errors: BadHandleError, ImageInUseError, IllegalArgumentError
+vgCopyImage = error_check(vg.vgCopyImage)
+
+################ 10.8 ###############
+
+# void vgDrawImage(VGImage image)
+vg.vgDrawImage.argtypes = (vhandle,)
+vg.vgDrawImage.restype = None
+# Errors: BadHandleError, ImageInUseError
+vgDrawImage = error_check(vg.vgDrawImage)
+
+############### 10.9.1 ##############
+
+# void vgSetPixels(VGint dx, VGint dy, VGImage src, VGint sx, VGint sy,
+#                  VGint width, VGint height)
+vg.vgSetPixels.argtypes = (c_int, c_int, vhandle, c_int, c_int, c_int, c_int)
+vg.vgSetPixels.restype = None
+# Errors: BadHandleError, ImageInUseError, IllegalArgumentError
+vgSetPixels = error_check(vg.vgSetPixels)
+
+# void vgWritePixels(const void * data, VGint dataStride,
+#                    VGImageFormat dataFormat, VGint dx, VGint dy,
+#                    VGint width, VGint height)
+vg.vgWritePixels.argtypes = (c_void_p, c_int, enum, c_int, c_int, c_int, c_int)
+vg.vgWritePixels.restype = None
+# Errors: UnsupportedImageFormatError, IllegalArgumentError
+vgWritePixels = error_check(vg.vgWritePixels)
+
+############### 10.9.2 ##############
+
+# void vgGetPixels(VGImage dst, VGint dx, VGint dy, VGint sx, VGint sy,
+#                  VGint width, VGint height)
+vg.vgGetPixels.argtypes = (vhandle, c_int, c_int, c_int, c_int, c_int, c_int)
+vg.vgGetPixels.restype = None
+# Errors: BadHandleError, ImageInUseError, IllegalArgumentError
+vgGetPixels = error_check(vg.vgGetPixels)
+
+# void vgReadPixels(void * data, VGint dataStride, VGImageFormat dataFormat,
+#                   VGint sx, VGint sy, VGint width, VGint height)
+vg.vgReadPixels.argtypes = (c_void_p, c_int, enum, c_int, c_int, c_int, c_int)
+vg.vgReadPixels.restype = None
+# Errors: UnsupportedImageFormatError, IllegalArgumentError
+vgReadPixels = error_check(vg.vgReadPixels)
+
+############### 10.10 ###############
+
+# void vgCopyPixels(VGint dx, VGint dy, VGint sx, VGint sy,
+#                   VGint width, VGint height)
+vg.vgCopyPixels.argtypes = (c_int, c_int, c_int, c_int, c_int, c_int)
+vg.vgCopyPixels.restype = None
+# Errors: IllegalArgumentError
+vgCopyPixels = error_check(vg.vgCopyPixels)
 
 vg.vg.argtypes = ()
 vg.vg.restype = None
