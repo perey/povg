@@ -22,19 +22,21 @@ __all__ = ['vgFlush',
            'INVALID_HANDLE']
 
 # Standard library imports.
-from ctypes import (CDLL, c_byte, c_ubyte, c_short, c_int, c_uint, c_float,
-                    c_void_p, POINTER)
+from ctypes import (CDLL, POINTER, c_byte, c_ubyte, c_short, c_int, c_uint,
+                    c_float, c_void_p)
 
 # Local imports.
 from . import VGError, error_codes
 
 # Native library import.
 vg = ctypes.CDLL('libOpenVG.so.1') # TODO: Cross-platform loading.
-int_p, float_p, ubyte_p = POINTER(c_int), POINTER(c_float), POINTER(c_ubyte)
 
 # Type definitions.
 vbool = enum = bitfield = vhandle = c_uint
-
+float2 = c_float * 2
+(c_ubyte_p, c_short_p, c_int_p, c_uint_p,
+ c_float_p) = (POINTER(c_type) for c_type in (c_ubyte, c_short, c_int, c_uint,
+                                              c_float))
 INVALID_HANDLE = vhandle(0)
 
 # Trap EGL errors. We set the argument and return types for
@@ -85,13 +87,13 @@ vg.vgSeti.restype = None
 vgSeti = error_check(vg.vgSeti)
 
 # void vgSetfv(VGParamType paramType, VGint count, const VGfloat * values)
-vg.vgSetfv.argtypes = (enum, c_int, float_p)
+vg.vgSetfv.argtypes = (enum, c_int, c_float_p)
 vg.vgSetfv.restype = None
 # Errors: IllegalArgumentError
 vgSetfv = error_check(vg.vgSetfv)
 
 # void vgSetiv(VGParamType paramType, VGint count, const VGint * values)
-vg.vgSetiv.argtypes = (enum, c_int, int_p)
+vg.vgSetiv.argtypes = (enum, c_int, c_int_p)
 vg.vgSetiv.restype = None
 # Errors: IllegalArgumentError
 vgSetiv = error_check(vg.vgSetiv)
@@ -115,13 +117,13 @@ vg.vgGetVectorSize.restype = c_int
 vgGetVectorSize = error_check(vg.vgGetVectorSize)
 
 # void vgGetfv(VGParamType paramType, VGint count, VGfloat * values)
-vg.vgGetfv.argtypes = (enum, c_int, float_p)
+vg.vgGetfv.argtypes = (enum, c_int, c_float_p)
 vg.vgGetfv.restype = None
 # Errors: IllegalArgumentError
 vgGetfv = error_check(vg.vgGetfv)
 
 # void vgGetiv(VGParamType paramType, VGint count, VGint * values)
-vg.vgGetiv.argtypes = (enum, c_int, int_p)
+vg.vgGetiv.argtypes = (enum, c_int, c_int_p)
 vg.vgGetiv.restype = None
 # Errors: IllegalArgumentError
 vgGetiv = error_check(vg.vgGetiv)
@@ -142,14 +144,14 @@ vgSetParameteri = error_check(vg.vgSetParameteri)
 
 # void vgSetParameterfv(VGHandle object, VGint paramType, VGint count,
 #                       const VGfloat * values)
-vg.vgSetParameterfv.argtypes = (vhandle, c_int, c_int, float_p)
+vg.vgSetParameterfv.argtypes = (vhandle, c_int, c_int, c_float_p)
 vg.vgSetParameterfv.restype = None
 # Errors: BadHandleError, IllegalArgumentError
 vgSetParameterfv = error_check(vg.vgSetParameterfv)
 
 # void vgSetParameteriv(VGHandle object, VGint paramType, VGint count,
 #                       const VGint * values)
-vg.vgSetParameteriv.argtypes = (vhandle, c_int, c_int, int_p)
+vg.vgSetParameteriv.argtypes = (vhandle, c_int, c_int, c_int_p)
 vg.vgSetParameteriv.restype = None
 # Errors: BadHandleError, IllegalArgumentError
 vgSetParameteriv = error_check(vg.vgSetParameteriv)
@@ -174,14 +176,14 @@ vgGetParameterVectorSize = error_check(vg.vgGetParameterVectorSize)
 
 # void vgGetParameterfv(VGHandle object, VGint paramType, VGint count,
 #                       VGfloat * values)
-vg.vgGetParameterfv.argtypes = (vhandle, c_int, c_int, float_p)
+vg.vgGetParameterfv.argtypes = (vhandle, c_int, c_int, c_float_p)
 vg.vgGetParameterfv.restype = None
 # Errors: BadHandleError, IllegalArgumentError
 vgGetParameterfv = error_check(vg.vgGetParameterfv)
 
 # void vgGetParameteriv(VGHandle object, VGint paramType, VGint count,
 #                       VGint * values)
-vg.vgGetParameteriv.argtypes = (vhandle, c_int, c_int, int_p)
+vg.vgGetParameteriv.argtypes = (vhandle, c_int, c_int, c_int_p)
 vg.vgGetParameteriv.restype = None
 # Errors: BadHandleError, IllegalArgumentError
 vgGetParameteriv = error_check(vg.vgGetParameteriv)
@@ -195,19 +197,19 @@ vg.vgLoadIdentity.restype = None
 vgLoadIdentity = error_check(vg.vgLoadIdentity)
 
 # void vgLoadMatrix(const VGfloat * m)
-vg.vgLoadMatrix.argtypes = (float_p,)
+vg.vgLoadMatrix.argtypes = (c_float_p,)
 vg.vgLoadMatrix.restype = None
 # Errors: IllegalArgumentError
 vgLoadMatrix = error_check(vg.vgLoadMatrix)
 
 # void vgGetMatrix(VGfloat * m)
-vg.vgGetMatrix.argtypes = (float_p,)
+vg.vgGetMatrix.argtypes = (c_float_p,)
 vg.vgGetMatrix.restype = None
 # Errors: IllegalArgumentError
 vgGetMatrix = error_check(vg.vgGetMatrix)
 
 # void vgMultMatrix(const VGfloat * m)
-vg.vgMultMatrix.argtypes = (float_p,)
+vg.vgMultMatrix.argtypes = (c_float_p,)
 vg.vgMultMatrix.restype = None
 # Errors: IllegalArgumentError
 vgMultMatrix = error_check(vg.vgMultMatrix)
@@ -334,7 +336,7 @@ vgAppendPath = error_check(vg.vgAppendPath)
 
 # void vgAppendPathData(VGPath dstPath, VGint numSegments,
 #                       const VGubyte * pathSegments, const void * pathData)
-vg.vgAppendPathData.argtypes = (vhandle, c_int, ubyte_p, c_void_p)
+vg.vgAppendPathData.argtypes = (vhandle, c_int, c_ubyte_p, c_void_p)
 vg.vgAppendPathData.restype = None
 # Errors: BadHandleError, PathCapabilityError, IllegalArgumentError
 vgAppendPathData = error_check(vg.vgAppendPathData)
@@ -378,8 +380,8 @@ vgPathLength = error_check(vg.vgPathLength)
 # void vgPointAlongPath(VGPath path, VGint startSegment, VGint numSegments,
 #                       VGfloat distance, VGfloat * x, VGfloat * y,
 #                       VGfloat * tangentX, VGfloat * tangentY)
-vg.vgPointAlongPath.argtypes = (vhandle, c_int, c_int, c_float, float_p,
-                                float_p, float_p, float_p)
+vg.vgPointAlongPath.argtypes = (vhandle, c_int, c_int, c_float, c_float_p,
+                                c_float_p, c_float_p, c_float_p)
 vg.vgPointAlongPath.restype = None
 # Errors: BadHandleError, PathCapabilityError, IllegalArgumentError
 vgPointAlongPath = error_check(vg.vgPointAlongPath)
@@ -388,15 +390,16 @@ vgPointAlongPath = error_check(vg.vgPointAlongPath)
 
 # void vgPathBounds(VGPath path, VGfloat * minX, VGfloat * minY,
 #                   VGfloat * width, VGfloat * height)
-vg.vgPathBounds.argtypes = (vhandle, float_p, float_p, float_p, float_p)
+vg.vgPathBounds.argtypes = (vhandle, c_float_p, c_float_p, c_float_p,
+                            c_float_p)
 vg.vgPathBounds.restype = None
 # Errors: BadHandleError, PathCapabilityError, IllegalArgumentError
 vgPathBounds = error_check(vg.vgPathBounds)
 
 # void vgPathTransformedBounds(VGPath path, VGfloat * minX, VGfloat * minY,
 #                              VGfloat * width, VGfloat * height)
-vg.vgPathTransformedBounds.argtypes = (vhandle, float_p, float_p, float_p,
-                                       float_p)
+vg.vgPathTransformedBounds.argtypes = (vhandle, c_float_p, c_float_p, c_float_p,
+                                       c_float_p)
 vg.vgPathTransformedBounds.restype = None
 # Errors: BadHandleError, PathCapabilityError, IllegalArgumentError
 vgPathTransformedBounds = error_check(vg.vgPathTransformedBounds)
@@ -577,6 +580,123 @@ vg.vgCopyPixels.argtypes = (c_int, c_int, c_int, c_int, c_int, c_int)
 vg.vgCopyPixels.restype = None
 # Errors: IllegalArgumentError
 vgCopyPixels = error_check(vg.vgCopyPixels)
+
+############### 11.4.2 ##############
+
+# VGFont vgCreateFont(VGint glyphCapacityHint)
+vg.vgCreateFont.argtypes = (c_int,)
+vg.vgCreateFont.restype = vhandle
+# Errors: IllegalArgumentError
+vgCreateFont = error_check(vg.vgCreateFont)
+
+# void vgDestroyFont(VGFont font)
+vg.vgDestroyFont.argtypes = (vhandle,)
+vg.vgDestroyFont.restype = None
+# Errors: BadHandleError
+vgDestroyFont = error_check(vg.vgDestroyFont)
+
+############### 11.4.4 ##############
+
+# void vgSetGlyphToPath(VGFont font, VGuint glyphIndex, VGPath path,
+#                       VGboolean isHinted, const VGfloat glyphOrigin[2],
+#                       const VGfloat escapement[2])
+vg.vgSetGlyphToPath.argtypes = (vhandle, c_uint, vhandle, vbool, float2,
+                                float2)
+vg.vgSetGlyphToPath.restype = None
+# Errors: BadHandleError, IllegalArgumentError
+vgSetGlyphToPath = error_check(vg.vgSetGlyphToPath)
+
+# void vgSetGlyphToImage(VGFont font, VGuint glyphIndex, VGImage image,
+#                        const VGfloat glyphOrigin[2],
+#                        const VGfloat escapement[2])
+vg.vgSetGlyphToImage.argtypes = (vhandle, c_uint, vhandle, float2, float2)
+vg.vgSetGlyphToImage.restype = None
+# Errors: BadHandleError, IllegalArgumentError, ImageInUseError
+vgSetGlyphToImage = error_check(vg.vgSetGlyphToImage)
+
+# void vgClearGlyph(VGFont font, VGuint glyphIndex)
+vg.vgClearGlyph.argtypes = (vhandle, c_uint)
+vg.vgClearGlyph.restype = None
+# Errors: BadHandleError, IllegalArgumentError
+vgClearGlyph = error_check(vg.vgClearGlyph)
+
+################ 11.5 ###############
+
+# void vgDrawGlyph(VGFont font, VGuint glyphIndex, VGbitfield paintModes,
+#                  VGboolean allowAutoHinting)
+vg.vgDrawGlyph.argtypes = (vhandle, c_uint, bitfield, vbool)
+vg.vgDrawGlyph.restype = None
+# Errors: BadHandleError, IllegalArgumentError
+vgDrawGlyph = error_check(vg.vgDrawGlyph)
+
+# void vgDrawGlyphs(VGFont font, VGint glyphCount, const VGuint * glyphIndices,
+#                   const VGfloat * adjustments_x,
+#                   const VGfloat * adjustments_y, VGbitfield paintModes,
+#                   VGboolean allowAutoHinting)
+vg.vgDrawGlyphs.argtypes = (vhandle, c_int, c_uint_p, c_float_p, c_float_p,
+                            bitfield, vbool)
+vg.vgDrawGlyphs.restype = None
+# Errors: BadHandleError, IllegalArgumentError
+vgDrawGlyphs = error_check(vg.vgDrawGlyphs)
+
+################ 12.3 ###############
+
+# void vgColorMatrix(VGImage dst, VGImage src, const VGfloat * matrix)
+vg.vgColorMatrix.argtypes = (vhandle, vhandle, c_float_p)
+vg.vgColorMatrix.restype = None
+# Errors: BadHandleError, ImageInUseError, IllegalArgumentError
+vgColorMatrix = error_check(vg.vgColorMatrix)
+
+################ 12.4 ###############
+
+# void vgConvolve(VGImage dst, VGImage src, VGint kernelWidth,
+#                 VGint kernelHeight, VGint shiftX, VGint shiftY,
+#                 const VGshort * kernel, VGfloat scale, VGfloat bias,
+#                 VGTilingMode tilingMode)
+vg.vgConvolve.argtypes = (vhandle, vhandle, c_int, c_int, c_int, c_int,
+                          c_short_p, c_float, c_float, enum)
+vg.vgConvolve.restype = None
+# Errors: BadHandleError, ImageInUseError, IllegalArgumentError
+vgConvolve = error_check(vg.vgConvolve)
+
+# void vgSeparableConvolve(VGImage dst, VGImage src, VGint kernelWidth,
+#                          VGint kernelHeight, VGint shiftX, VGint shiftY,
+#                          const VGshort * kernelX, const VGshort * kernelY,
+#                          VGfloat scale, VGfloat bias,
+#                          VGTilingMode tilingMode)
+vg.vgSeparableConvolve.argtypes = (vhandle, vhandle, c_int, c_int, c_int,
+                                   c_int, c_short_p, c_short_p, c_float,
+                                   c_float, enum)
+vg.vgSeparableConvolve.restype = None
+# Errors: BadHandleError, ImageInUseError, IllegalArgumentError
+vgSeparableConvolve = error_check(vg.vgSeparableConvolve)
+
+# void vgGaussianBlur(VGImage dst, VGImage src, VGfloat stdDeviationX,
+#                     VGfloat stdDeviationY, VGTilingMode tilingMode)
+vg.vgGaussianBlur.argtypes = (vhandle, vhandle, c_float, c_float, enum)
+vg.vgGaussianBlur.restype = None
+# Errors: BadHandleError, ImageInUseError, IllegalArgumentError
+vgGaussianBlur = error_check(vg.vgGaussianBlur)
+
+################ 12.5 ###############
+
+# void vgLookup(VGImage dst, VGImage src, const VGubyte * redLUT,
+#               const VGubyte * greenLUT, const VGubyte * blueLUT,
+#               const VGubyte * alphaLUT, VGboolean outputLinear,
+#               VGboolean outputPremultiplied)
+vg.vgLookup.argtypes = (vhandle, vhandle, c_ubyte_p, c_ubyte_p, c_ubyte_p,
+                        c_ubyte_p, vbool, vbool)
+vg.vgLookup.restype = None
+# Errors: BadHandleError, ImageInUseError, IllegalArgumentError
+vgLookup = error_check(vg.vgLookup)
+
+# void vgLookupSingle(VGImage dst, VGImage src, const VGuint * lookupTable,
+#                     VGImageChannel sourceChannel, VGboolean outputLinear,
+#                     VGboolean outputPremultiplied)
+vg.vgLookupSingle.argtypes = (vhandle, vhandle, c_uint_p, enum, vbool, vbool)
+vg.vgLookupSingle.restype = None
+# Errors: BadHandleError, ImageInUseError, IllegalArgumentError
+vgLookupSingle = error_check(vg.vgLookupSingle)
 
 vg.vg.argtypes = ()
 vg.vg.restype = None
