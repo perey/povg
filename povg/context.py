@@ -1,13 +1,66 @@
 #!/usr/bin/env python3
 
-'''OpenVG 1.1 context access.'''
+'''OpenVG context access.
+
+This module depends on Pegl, a Python wrapper around the EGL library. If
+you are using Povg with some other means of managing contexts, you
+should not import this module. Other Povg modules will not import this
+module themselves.
+
+'''
+# Copyright © 2012 Tim Pederick.
+#
+# This file is part of Povg.
+#
+# Povg is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Povg is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+# or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public
+# License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Povg. If not, see <http://www.gnu.org/licenses/>.
 
 # Standard library imports.
 import ctypes
 from collections import namedtuple
 
+# Pegl library imports.
+import pegl.display
+import pegl.config
+import pegl.context
+import pegl.attribs
+
 # Local library imports.
-from . import error_check, vg, vg_bool
+from .native import vgFlush, vgFinish
+
+# Convenience function for getting an OpenVG-capable EGL context.
+def Context(display=None, config=None):
+    '''Get an OpenVG-capable EGL context.
+
+    Keyword arguments:
+        display -- The EGL display to which this context will belong. If
+            omitted, the current display is used.
+        config -- The EGL configuration to apply to this context. If
+            omitted, the first available OpenVG-supporting configuration
+            will be used.
+
+    '''
+    if display is None:
+        display = pegl.display.current_display()
+    if config is None:
+        openvg = pegl.attribs.config.ClientAPIs(OPENVG=1)
+        config = pegl.config.get_configs(display,
+                                         {'RENDERABLE_TYPE': openvg})[0]
+    pegl.context.bind_api('OpenVG')
+    ctx = pegl.context.Context(display, config)
+
+    assert ctx.api == 'OpenVG'
+    return ctx
 
 # Parameter types.
 _param = {
@@ -139,20 +192,20 @@ def _getsetv(param, name, values_tuple, type_=int):
     '''Create a read/write parameter with a vector value.'''
     pass
 
-# The context itself.
-class Context:
-    '''The OpenVG context.
-
-    The context is a singleton-like object, in that all instances of
-    this class will access the same context parameters. It is therefore
-    not generally necessary or useful to create more than one instance
-    at a time.
-
-    '''
-    matrix_mode = _getset('VG_MATRIX_MODE', 'transform matrix mode',
-                          'contained in the MatrixMode named tuple')
-    fill_rule = _getset('VG_FILL_RULE', 'path fill rule',
-                          'contained in the FillRule named tuple')
-
-    max_kernel_size = _get('VG_MAX_KERNEL_SIZE', 'maximum kernel size',
-                           'positive integers')
+### The context itself.
+##class Context:
+##    '''The OpenVG context.
+##
+##    The context is a singleton-like object, in that all instances of
+##    this class will access the same context parameters. It is therefore
+##    not generally necessary or useful to create more than one instance
+##    at a time.
+##
+##    '''
+##    matrix_mode = _getset('VG_MATRIX_MODE', 'transform matrix mode',
+##                          'contained in the MatrixMode named tuple')
+##    fill_rule = _getset('VG_FILL_RULE', 'path fill rule',
+##                          'contained in the FillRule named tuple')
+##
+##    max_kernel_size = _get('VG_MAX_KERNEL_SIZE', 'maximum kernel size',
+##                           'positive integers')
