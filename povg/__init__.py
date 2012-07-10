@@ -87,6 +87,11 @@ class NoContextError(OpenVGError):
     default_msg = 'no current OpenVG context'
 
 
+class BadWarpError(OpenVGError):
+    '''There is no non-degenerate transform that meets the constraints.'''
+    default_msg = 'no warp meets constraints'
+
+
 error_codes = {0: None, # No error.
                0x1000: BadHandleError, 0x1001: IllegalArgumentError,
                0x1002: OutOfMemoryError, 0x1003: PathCapabilityError,
@@ -94,12 +99,9 @@ error_codes = {0: None, # No error.
                0x1005: UnsupportedPathFormatError, 0x1006: ImageInUseError,
                0x1007: NoContextError}
 
-def error_check(fn):
-    '''Check the OpenVG error trap after calling a function.'''
-    def wrapped_fn(*args, **kwargs):
-        result = fn(*args, **kwargs)
-        errcode = error_codes.get(vg.vgGetError(), OpenVGError)
-        if errcode is not None:
-            raise errcode()
-        return result
-    return wrapped_fn
+vgu_error_codes = {0: None, # No error.
+                   0xF000: BadHandleError, 0xF001: IllegalArgumentError,
+                   0xF002: OutOfMemoryError, 0xF003: PathCapabilityError,
+                   0xF004: BadWarpError}
+
+                   

@@ -51,7 +51,7 @@ from ctypes import (CDLL, POINTER, c_byte, c_ubyte, c_short, c_int, c_uint,
                     c_float, c_char_p, c_void_p)
 
 # Local imports.
-from . import VGError, error_codes
+from . import VGError, error_codes, vgu_error_codes
 
 # Native library import.
 vg = ctypes.CDLL('libOpenVG.so.1') # TODO: Cross-platform loading.
@@ -746,7 +746,111 @@ vg.vgGetString.restype = c_char_p
 # is not a valid enumeration value.
 vgGetString = error_check(vg.vgGetString)
 
-vg.vg.argtypes = ()
-vg.vg.restype = None
-# Errors: 
-vg = error_check(vg.vg)
+############## 17 (VGU) #############
+# TODO: Split this into a separate module? VGU isn't guaranteed to be available
+# at runtime, though if it is I'm pretty sure it's loaded from the same file.
+
+# VGU functions have a distinct style of error checking, based on the return
+# values of VGU functions rather than the OpenVG error trap.
+def vgu_error_check(fn):
+    '''Check the VGU error value returned by a function.'''
+    def wrapped_fn(*args, **kwargs):
+        result = fn(*args, **kwargs)
+        errcode = vgu_error_codes.get(result, OpenVGError)
+        if errcode is not None:
+            raise errcode()
+        return result
+    return wrapped_fn
+
+################ 17.1 ###############
+
+# VGUErrorCode vguLine(VGPath path, VGfloat x0, VGfloat y0,
+#                      VGfloat x1, VGfloat y1)
+vg.vguLine.argtypes = (c_handle, c_float, c_float, c_float, c_float)
+vg.vguLine.restype = c_enum
+# Errors: BadHandleError, PathCapabilityError
+vguLine = vgu_error_check(vg.vguLine)
+
+# VGUErrorCode vguPolygon(VGPath path, const VGfloat * points, VGint count,
+#                         VGboolean closed)
+vg.vguPolygon.argtypes = (c_handle, c_float_p, c_int, c_ibool)
+vg.vguPolygon.restype = c_enum
+# Errors: BadHandleError, PathCapabilityError, IllegalArgumentError
+vguPolygon = vgu_error_check(vg.vguPolygon)
+
+# VGUErrorCode vguRect(VGPath path, VGfloat x, VGfloat y,
+#                      VGfloat width, VGfloat height)
+vg.vguRect.argtypes = (c_handle, c_float, c_float, c_float, c_float)
+vg.vguRect.restype = c_enum
+# Errors: BadHandleError, PathCapabilityError, IllegalArgumentError
+vguRect = vgu_error_check(vg.vguRect)
+
+# VGUErrorCode vguRoundRect(VGPath path, VGfloat x, VGfloat y,
+#                           VGfloat width, VGfloat height,
+#                           VGfloat arcWidth, VGfloat arcHeight)
+vg.vguRoundRect.argtypes = (c_handle, c_float, c_float, c_float, c_float,
+                            c_float, c_float)
+vg.vguRoundRect.restype = c_enum
+# Errors: BadHandleError, PathCapabilityError, IllegalArgumentError
+vguRoundRect = vgu_error_check(vg.vguRoundRect)
+
+# VGUErrorCode vguEllipse(VGPath path, VGfloat cx, VGfloat cy,
+#                         VGfloat width, VGfloat height)
+vg.vguEllipse.argtypes = (c_handle, c_float, c_float, c_float, c_float)
+vg.vguEllipse.restype = c_enum
+# Errors: BadHandleError, PathCapabilityError, IllegalArgumentError
+vguEllipse = vgu_error_check(vg.vguEllipse)
+
+# VGUErrorCode vguArc(VGPath path, VGfloat x, VGfloat y,
+#                     VGfloat width, VGfloat height,
+#                     VGfloat startAngle, VGfloat angleExtent,
+#                     VGUArcType arcType)
+vg.vguArc.argtypes = (c_handle, c_float, c_float, c_float, c_float, c_float,
+                   c_float, c_enum)
+vg.vguArc.restype = c_enum
+# Errors: BadHandleError, PathCapabilityError, IllegalArgumentError
+vguArc = vgu_error_check(vg.vguArc)
+
+################ 17.2 ###############
+
+# VGUErrorCode vguComputeWarpQuadToSquare(VGfloat sx0, VGfloat sy0,
+#                                         VGfloat sx1, VGfloat sy1,
+#                                         VGfloat sx2, VGfloat sy2,
+#                                         VGfloat sx3, VGfloat sy3,
+#                                         VGfloat * matrix)
+vg.vguComputeWarpQuadToSquare.argtypes = (c_float, c_float, c_float, c_float,
+                                          c_float, c_float, c_float, c_float,
+                                          c_float_p)
+vg.vguComputeWarpQuadToSquare.restype = c_enum
+# Errors: IllegalArgumentError, BadWarpError
+vguComputeWarpQuadToSquare = vgu_error_check(vg.vguComputeWarpQuadToSquare)
+
+# VGUErrorCode vguComputeWarpSquareToQuad(VGfloat dx0, VGfloat dy0,
+#                                         VGfloat dx1, VGfloat dy1,
+#                                         VGfloat dx2, VGfloat dy2,
+#                                         VGfloat dx3, VGfloat dy3,
+#                                         VGfloat * matrix)
+vg.vguComputeWarpSquareToQuad.argtypes = (c_float, c_float, c_float, c_float,
+                                          c_float, c_float, c_float, c_float,
+                                          c_float_p)
+vg.vguComputeWarpSquareToQuad.restype = c_enum
+# Errors: IllegalArgumentError, BadWarpError
+vguComputeWarpSquareToQuad = vgu_error_check(vg.vguComputeWarpSquareToQuad)
+
+# VGUErrorCode vguComputeWarpQuadToQuad(VGfloat dx0, VGfloat dy0,
+#                                       VGfloat dx1, VGfloat dy1,
+#                                       VGfloat dx2, VGfloat dy2,
+#                                       VGfloat dx3, VGfloat dy3,
+#                                       VGfloat sx0, VGfloat sy0,
+#                                       VGfloat sx1, VGfloat sy1,
+#                                       VGfloat sx2, VGfloat sy2,
+#                                       VGfloat sx3, VGfloat sy3,
+#                                       VGfloat * matrix)
+vg.vguComputeWarpQuadToQuad.argtypes = (c_float, c_float, c_float, c_float,
+                                        c_float, c_float, c_float, c_float,
+                                        c_float, c_float, c_float, c_float,
+                                        c_float, c_float, c_float, c_float,
+                                        c_float_p)
+vg.vguComputeWarpQuadToQuad.restype = c_enum
+# Errors: IllegalArgumentError, BadWarpError
+vguComputeWarpQuadToQuad = vgu_error_check(vg.vguComputeWarpQuadToQuad)
