@@ -26,8 +26,8 @@ module themselves.
 # along with Povg. If not, see <http://www.gnu.org/licenses/>.
 
 # Standard library imports.
-import ctypes
 from collections import namedtuple
+from ctypes import c_float, c_int
 
 # Pegl library imports.
 import pegl.display
@@ -36,96 +36,73 @@ import pegl.context
 import pegl.attribs
 
 # Local library imports.
-from .native import vgFlush, vgFinish
+from .native import (vgFlush, vgFinish, vgSeti, vgSetf, vgSetiv, vgSetfv,
+                     vgGetVectorSize, vgGeti, vgGetf, vgGetiv, vgGetfv)
 
-# Convenience function for getting an OpenVG-capable EGL context.
-def Context(display=None, config=None):
-    '''Get an OpenVG-capable EGL context.
-
-    Keyword arguments:
-        display -- The EGL display to which this context will belong. If
-            omitted, the current display is used.
-        config -- The EGL configuration to apply to this context. If
-            omitted, the first available OpenVG-supporting configuration
-            will be used.
-
-    '''
-    if display is None:
-        display = pegl.display.current_display()
-    if config is None:
-        openvg = pegl.attribs.config.ClientAPIs(OPENVG=1)
-        config = pegl.config.get_configs(display,
-                                         {'RENDERABLE_TYPE': openvg})[0]
-    pegl.context.bind_api('OpenVG')
-    ctx = pegl.context.Context(display, config)
-
-    assert ctx.api == 'OpenVG'
-    return ctx
-
-# Parameter types.
-_param = {
+# Context parameter types.
+_params = {
     # Mode settings
-    'VG_MATRIX_MODE': 0x1100,
-    'VG_FILL_RULE': 0x1101,
-    'VG_IMAGE_QUALITY': 0x1102,
-    'VG_RENDERING_QUALITY': 0x1103,
-    'VG_BLEND_MODE': 0x1104,
-    'VG_IMAGE_MODE': 0x1105,
+    'MATRIX_MODE': 0x1100,
+    'FILL_RULE': 0x1101,
+    'IMAGE_QUALITY': 0x1102,
+    'RENDERING_QUALITY': 0x1103,
+    'BLEND_MODE': 0x1104,
+    'IMAGE_MODE': 0x1105,
 
     # Scissoring rectangles
-    'VG_SCISSOR_RECTS': 0x1106,
+    'SCISSOR_RECTS': 0x1106,
 
     # Colour transformation
-    'VG_COLOR_TRANSFORM': 0x1170,
-    'VG_COLOR_TRANSFORM_VALUES': 0x1171,
+    'COLOR_TRANSFORM': 0x1170,
+    'COLOR_TRANSFORM_VALUES': 0x1171,
 
     # Stroke parameters
-    'VG_STROKE_LINE_WIDTH': 0x1110,
-    'VG_STROKE_CAP_STYLE': 0x1111,
-    'VG_STROKE_JOIN_STYLE': 0x1112,
-    'VG_STROKE_MITER_LIMIT': 0x1113,
-    'VG_STROKE_DASH_PATTERN': 0x1114,
-    'VG_STROKE_DASH_PHASE': 0x1115,
-    'VG_STROKE_DASH_PHASE_RESET': 0x1116,
+    'STROKE_LINE_WIDTH': 0x1110,
+    'STROKE_CAP_STYLE': 0x1111,
+    'STROKE_JOIN_STYLE': 0x1112,
+    'STROKE_MITER_LIMIT': 0x1113,
+    'STROKE_DASH_PATTERN': 0x1114,
+    'STROKE_DASH_PHASE': 0x1115,
+    'STROKE_DASH_PHASE_RESET': 0x1116,
 
     # Tiling edge fill colour
-    'VG_TILE_FILL_COLOR': 0x1120,
+    'TILE_FILL_COLOR': 0x1120,
 
     # Clear colour
-    'VG_CLEAR_COLOR': 0x1121,
+    'CLEAR_COLOR': 0x1121,
 
     # Glyph origin
-    'VG_GLYPH_ORIGIN': 0x1122,
+    'GLYPH_ORIGIN': 0x1122,
 
     # Alpha masking and scissoring
-    'VG_MASKING': 0x1130,
-    'VG_SCISSORING': 0x1131,
+    'MASKING': 0x1130,
+    'SCISSORING': 0x1131,
 
     # Pixel layout information
-    'VG_PIXEL_LAYOUT': 0x1140,
-    'VG_SCREEN_LAYOUT': 0x1141,
+    'PIXEL_LAYOUT': 0x1140,
+    'SCREEN_LAYOUT': 0x1141,
 
     # Filter source format selection
-    'VG_FILTER_FORMAT_LINEAR': 0x1150,
-    'VG_FILTER_FORMAT_PREMULTIPLIED': 0x1151,
+    'FILTER_FORMAT_LINEAR': 0x1150,
+    'FILTER_FORMAT_PREMULTIPLIED': 0x1151,
 
     # Filter destination write enable mask
-    'VG_FILTER_CHANNEL_MASK': 0x1152,
+    'FILTER_CHANNEL_MASK': 0x1152,
 
     # Read-only implementation limits
-    'VG_MAX_SCISSOR_RECTS': 0x1160,
-    'VG_MAX_DASH_COUNT': 0x1161,
-    'VG_MAX_KERNEL_SIZE': 0x1162,
-    'VG_MAX_SEPARABLE_KERNEL_SIZE': 0x1163,
-    'VG_MAX_COLOR_RAMP_STOPS': 0x1164,
-    'VG_MAX_IMAGE_WIDTH': 0x1165,
-    'VG_MAX_IMAGE_HEIGHT': 0x1166,
-    'VG_MAX_IMAGE_PIXELS': 0x1167,
-    'VG_MAX_IMAGE_BYTES': 0x1168,
-    'VG_MAX_FLOAT': 0x1169,
-    'VG_MAX_GAUSSIAN_STD_DEVIATION': 0x116A}
+    'MAX_SCISSOR_RECTS': 0x1160,
+    'MAX_DASH_COUNT': 0x1161,
+    'MAX_KERNEL_SIZE': 0x1162,
+    'MAX_SEPARABLE_KERNEL_SIZE': 0x1163,
+    'MAX_COLOR_RAMP_STOPS': 0x1164,
+    'MAX_IMAGE_WIDTH': 0x1165,
+    'MAX_IMAGE_HEIGHT': 0x1166,
+    'MAX_IMAGE_PIXELS': 0x1167,
+    'MAX_IMAGE_BYTES': 0x1168,
+    'MAX_FLOAT': 0x1169,
+    'MAX_GAUSSIAN_STD_DEVIATION': 0x116A}
 
-# Parameter value enumerations.
+# Context parameter values.
 MatrixMode = namedtuple('MatrixMode',
                         ('path_u2s', 'image_u2s', 'fill_p2u', 'stroke_p2u',
                          'glyph_u2s')
@@ -152,60 +129,141 @@ ScissorRects = namedtuple('ScissorRects',
                           ('normal', 'multiply', 'stencil')
                           )(0x1F00, 0x1F01, 0x1F02)
 
-def name_lookup(ntup, val):
-    '''Get the name of a value from a named tuple.'''
-    try:
-        return [k for k, v in ntup.__dict__.items() if v == val][0]
-    except IndexError:
-        # Key does not exist.
-        return None
-
-# Getter/setter factories.
+# Context parameter getter/setter factories.
 def _get(param, name, values, type_=int):
-    '''Create a read-only parameter with a scalar value.'''
-    by_type = {int: vg.vgGeti,
-               float: vg.vgGetf}
-    get_fn = by_type[type_]
+    '''Create a read-only property with a scalar value.
 
-    getter = error_check(lambda self: type_(get_fn(_param[param])))
-    doc = ('The {} (read-only).\n\n'
-           '    Possible values are {}.\n'.format(name, values))
+    Keyword arguments:
+        param -- A key from _params identifying the context parameter.
+        name -- A human-readable name for the property.
+        values -- A human-readable description of the values this
+            property can have.
+        type_ -- The type of this property, either int or float. If
+            omitted, the default is int.
 
-    return property(getter, doc=doc)
+    '''
+    param_id = _params[param]
+    get_fn = {int: vgGeti, float: vgGetf}[type_]
+    return property(fget=lambda self: type_(get_fn(param_id)),
+                    doc=('The {} (read-only).\n\n'
+                         '    Possible values are {}.\n'.format(name, values)))
 
 def _getv(param, type_=int):
-    '''Create a read-only parameter with a vector value.'''
+    '''Create a read-only property with a vector value.'''
     pass
 
 def _getset(param, name, values, type_=int):
-    '''Create a read/write parameter with a scalar value.'''
-    by_type = {int: (vg.vgGeti, vg.vgSeti, ctypes.c_int),
-               float: (vg.vgGetf, vg.vgSetf, ctypes.c_float)}
-    get_fn, set_fn, c_type = by_type[type_]
+    '''Create a read/write property with a scalar value.
 
-    getter = error_check(lambda self: type_(get_fn(_param[param])))
-    setter = error_check(lambda self, val: set_fn(_param[param], c_type(val)))
-    doc = 'The {}.\n\n    Legal values are {}.\n'.format(name, values)
-    return property(getter, setter, doc=doc)
+    Keyword arguments:
+        param -- A key from _params identifying the context parameter.
+        name -- A human-readable name for the property.
+        values -- A human-readable description of the values this
+            property can take.
+        type_ -- The type of this property, one of int, float or bool.
+            If omitted, the default is int.
+
+    '''
+    param_id = _params[param]
+    get_fn, set_fn, c_type = {int: (vgGeti, vgSeti, c_int),
+                              bool: (vgGeti, vgSeti, c_int),
+                              float: (vgGetf, vgSetf, c_float)}[type_]
+    return property(fget=lambda self: type_(get_fn(param_id)),
+                    fset=lambda self, val: set_fn(param_id, c_type(val)),
+                    doc=('The {}.\n\n'
+                         '    Legal values are {}.\n'.format(name, values)))
 
 def _getsetv(param, name, values_tuple, type_=int):
-    '''Create a read/write parameter with a vector value.'''
+    '''Create a read/write property with a vector value.'''
     pass
 
-### The context itself.
-##class Context:
-##    '''The OpenVG context.
-##
-##    The context is a singleton-like object, in that all instances of
-##    this class will access the same context parameters. It is therefore
-##    not generally necessary or useful to create more than one instance
-##    at a time.
-##
-##    '''
-##    matrix_mode = _getset('VG_MATRIX_MODE', 'transform matrix mode',
-##                          'contained in the MatrixMode named tuple')
-##    fill_rule = _getset('VG_FILL_RULE', 'path fill rule',
-##                          'contained in the FillRule named tuple')
-##
-##    max_kernel_size = _get('VG_MAX_KERNEL_SIZE', 'maximum kernel size',
-##                           'positive integers')
+# The OpenVG context itself.
+class Context(pegl.context.Context):
+    '''Represents an EGL context configured for OpenVG.
+
+    Instance attributes:
+        display, config, ctxhandle, render_buffer -- Inherited from
+            pegl.context.Context.
+        api -- Inherited from pegl.context.Context. Should always be the
+            string 'OpenVG'.
+        api_version -- Inherited from pegl.context.Context, but never
+            relevant.
+
+    Access to OpenVG-specific context parameters is possible through
+    the following attributes. Note that these parameters apply to the
+    current context, not necessarily to the Context instance. You should
+    ensure that this context instance is current before querying or
+    setting any of these parameters.
+
+    Context attributes:
+        matrix_mode
+        fill_rule
+        image_quality
+        rendering_quality
+        blend_mode
+        image_mode
+        scissor_rects
+        color_transform
+        color_transform_values
+        stroke_line_width
+        stroke_cap_style
+        stroke_join_style
+        stroke_miter_limit
+        stroke_dash_pattern
+        stroke_dash_phase
+        stroke_dash_phase_reset
+        tile_fill_color
+        clear_color
+        glyph_origin
+        masking
+        scissoring
+        screen_layout
+        pixel_layout
+        filter_format_linear
+        filter_format_premultiplied
+        filter_channel_mask
+
+    Read-only context attributes:
+        max_scissor_rects
+        max_dash_count
+        max_kernel_size
+        max_separable_kernel_size
+        max_gaussian_std_deviation
+        max_color_ramp_stops
+        max_image_width
+        max_image_height
+        max_image_pixels
+        max_image_bytes
+        max_float
+
+    '''
+    def __init__(self, display=None, config=None, share_context=None):
+        '''Create the context.
+
+        Keyword arguments:
+            display -- As the instance attribute. If omitted, the
+                current display is used.
+            config -- As the instance attribute. If omitted, the first
+                available OpenVG-supporting configuration will be used.
+            share_context -- An optional OpenVG context with which this
+                one will share state.
+
+        '''
+        if display is None:
+            display = pegl.display.current_display()
+        if config is None:
+            openvg = pegl.attribs.config.ClientAPIs(OPENVG=1)
+            config = pegl.config.get_configs(display,
+                                             {'RENDERABLE_TYPE': openvg})[0]
+        pegl.context.bind_api('OpenVG')
+        super().__init__(display, config, share_context)
+
+        assert self.api == 'OpenVG'
+
+    matrix_mode = _getset('MATRIX_MODE', 'transform matrix mode',
+                          'contained in the MatrixMode named tuple')
+    fill_rule = _getset('FILL_RULE', 'path fill rule',
+                        'contained in the FillRule named tuple')
+
+    max_kernel_size = _get('MAX_KERNEL_SIZE', 'maximum kernel size',
+                           'positive integers')
