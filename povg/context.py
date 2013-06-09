@@ -292,7 +292,22 @@ def _getset(param, name, values, type_=int):
                          '    Legal values are {}.\n'.format(name, values)))
 
 def _getsetv(param, name, values, type_=int, known_size=None):
-    '''Create a read/write property with a vector value.'''
+    '''Create a read/write property with a vector value.
+
+    Keyword arguments:
+        param -- A key from _params identifying the context parameter.
+        name -- A human-readable name for the property.
+        values -- A human-readable description of the values this
+            property can take.
+        type_ -- The type of this property. OpenVG only directly allows
+            integer or floating-point parameters. (It also has boolean
+            parameters represented by integers, but currently no vectors
+            of booleans). If this argument is set to something other
+            than float, OpenVG will provide an integer which will then
+            be converted to the supplied type. If omitted, the default
+            is int.
+
+    '''
     param_id = _params[param]
     return property(fget=_get_vector(param_id, type_, known_size),
                     fset=_set_vector(param_id, type_),
