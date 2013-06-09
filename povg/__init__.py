@@ -18,22 +18,13 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 __author__ = 'Tim Pederick'
-__version__ = '0.0+1.1' # The +N.n part is the OpenVG API version wrapped.
+__version__ = '0.0_1.1' # The _N.n part is the OpenVG API version wrapped.
 __all__ = ['context', 'native',
-           'error_check', 'vg', 'vg_bool',
            'OpenVGError', 'BadHandleError', 'IllegalArgumentError',
            'OutOfMemoryError', 'PathCapabilityError',
            'UnsupportedImageFormatError', 'UnsupportedPathFormatError',
-           'ImageInUseError', 'NoContextError']
-
-# Standard library imports.
-import ctypes
-
-# The OpenVG API.
-vg = ctypes.CDLL('libOpenVG.so.1')
-
-# Utility functions.
-vg_bool = lambda val: 1 if val else 0
+           'ImageInUseError', 'NoContextError',
+           'error_codes', 'vgu_error_codes']
 
 # Exceptions for handling OpenVG errors.
 class OpenVGError(Exception):

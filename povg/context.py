@@ -30,6 +30,10 @@ from collections import namedtuple
 from ctypes import c_float, c_int
 
 # Pegl library imports.
+# TODO: Don't rely on Pegl; or at least, provide access to OpenVG context
+# without relying on any particular way of creating that context. It's a
+# pretty rough fit anyway, extending pegl.context.Context like this; the
+# OpenVG context is essentially a singleton (or rather, a borg).
 import pegl.display
 import pegl.config
 import pegl.context
@@ -37,7 +41,8 @@ import pegl.attribs
 
 # Local library imports.
 from .native import (vgFlush, vgFinish, vgSeti, vgSetf, vgSetiv, vgSetfv,
-                     vgGetVectorSize, vgGeti, vgGetf, vgGetiv, vgGetfv)
+                     vgGetVectorSize, vgGeti, vgGetf, vgGetiv, vgGetfv,
+                     c_int_p, c_float_p)
 
 # Context parameter types.
 _params = {
@@ -103,33 +108,118 @@ _params = {
     'MAX_GAUSSIAN_STD_DEVIATION': 0x116A}
 
 # Context parameter values.
-MatrixMode = namedtuple('MatrixMode',
-                        ('path_u2s', 'image_u2s', 'fill_p2u', 'stroke_p2u',
-                         'glyph_u2s')
+MatrixMode = namedtuple('MatrixMode_tuple',
+                        ('PATH_USER_TO_SURFACE', 'IMAGE_USER_TO_SURFACE',
+                         'FILL_PAINT_TO_USER', 'STROKE_PAINT_TO_USER',
+                         'GLYPH_USER_TO_SURFACE')
                         )(0x1400, 0x1401, 0x1402, 0x1403,
                           0x1404)
-FillRule = namedtuple('FillRule',
-                      ('even_odd', 'non_zero')
+FillRule = namedtuple('FillRule_tuple',
+                      ('EVEN_ODD', 'NON_ZERO')
                       )(0x1900, 0x1901)
-ImageQuality = namedtuple('ImageQuality',
-                          ('no_aa', 'faster', 'better')
-                          )(1, 2, 4)
-RenderQuality = namedtuple('RenderQuality',
-                           ('no_aa', 'faster', 'better')
-                           )(0x1200, 0x1201, 0x1202)
-BlendMode = namedtuple('BlendMode',
-                       ('src', 'src_over', 'dst_over', 'src_in', 'dst_in',
-                        'multiply', 'screen', 'darken', 'lighten', 'additive')
+ImageQuality = namedtuple('ImageQuality_tuple',
+                          ('NON_ANTIALIASED', 'FASTER', 'BETTER')
+                          )(1, 2, 4) # TODO: Bitmask values!
+RenderingQuality = namedtuple('RenderQuality_tuple',
+                              ('NON_ANTIALIASED', 'FASTER', 'BETTER')
+                              )(0x1200, 0x1201, 0x1202)
+BlendMode = namedtuple('BlendMode_tuple',
+                       ('SRC', 'SRC_OVER', 'DST_OVER', 'SRC_IN', 'DST_IN',
+                        'MULTIPLY', 'SCREEN', 'DARKEN', 'LIGHTEN', 'ADDITIVE')
                        )(0x2000, 0x2001, 0x2002, 0x2003, 0x2004,
                          0x2005, 0x2006, 0x2007, 0x2008, 0x2009)
-ImageMode = namedtuple('ImageMode',
-                       ('normal', 'multiply', 'stencil')
+ImageMode = namedtuple('ImageMode_tuple',
+                       ('NORMAL', 'MULTIPLY', 'STENCIL')
                        )(0x1F00, 0x1F01, 0x1F02)
-ScissorRects = namedtuple('ScissorRects',
-                          ('normal', 'multiply', 'stencil')
-                          )(0x1F00, 0x1F01, 0x1F02)
+CapStyle = namedtuple('CapStyle_tuple',
+                      ('BUTT', 'ROUND', 'SQUARE')
+                      )(0x1700, 0x1701, 0x1702)
+JoinStyle = namedtuple('JoinStyle_tuple',
+                       ('MITER', 'ROUND', 'BEVEL')
+                       )(0x1800, 0x1801, 0x1802)
+FillRule = namedtuple('FillRule_tuple',
+                      ('EVEN_ODD', 'NON_ZERO')
+                      )(0x1900, 0x1901)
+PixelLayout = namedtuple('PixelLayout_tuple',
+                         ('UNKNOWN', 'RGB_VERTICAL', 'BGR_VERTICAL',
+                          'RGB_HORIZONTAL', 'BGR_HORIZONTAL')
+                         )(0x1300, 0x1301, 0x1302, 0x1303, 0x1304)
 
 # Context parameter getter/setter factories.
+# TODO: Factory style (perhaps only for _getset()) that is aware of named
+# tuples being used for its legal values.
+def _get_vector(param_id, type_=int, known_size=None):
+    '''Dynamically create a getter function for a vector parameter.
+
+    The functions thus created have all implementation details built in
+    when created (somewhat like currying a function), and accept one
+    argument, called self. They are thus suitable for use as getter
+    methods for properties.
+
+    Keyword arguments:
+        param_id -- The integer value that is passed to the native
+            function to identify the parameter in question.
+        type_ -- The data type stored in this vector. OpenVG only
+            directly allows integer or floating-point parameters. (It
+            also has boolean parameters, represented by integers, but no
+            parameter is currently defined as a vector of booleans.) If
+            this argument is set to something other than float, OpenVG
+            will provide an integer which will then be converted to the
+            supplied type. If omitted, the default is int.
+        known_size -- The fixed size of this vector, if it has one. If
+            omitted or None, the vector will be dynamically sized each
+            time it is read.
+
+    '''
+    # Get the native function and pointer type needed.
+    getv_fn, c_pointer = ((vgGetfv, c_float_p) if type_ is float else
+                          (vgGetiv, c_int_p))
+    # Create a function that either returns the static size (if we know what
+    # that is) or fetches the current size when called.
+    sizer = ((lambda: known_size) if known_size is not None else
+             (lambda: vgGetVectorSize(param_id)))
+
+    # Construct the getter function, with the above details baked in.
+    def getter(self):
+        size = sizer()
+        array = (c_pointer * size)()
+        getv_fn(param_id, size, array)
+        return tuple(type_(elem) for elem in array)
+
+    return getter
+
+def _set_vector(param_id, type_=int):
+    '''Dynamically create a setter function for a vector parameter.
+
+    The functions thus created have all implementation details built in
+    when created (somewhat like currying a function), and accept two
+    argument, called self and val. They are thus suitable for use as
+    setter methods for properties.
+
+    Keyword arguments:
+        param_id -- The integer value that is passed to the native
+            function to identify the parameter in question.
+        type_ -- The data type stored in this vector. OpenVG only
+            directly allows integer or floating-point parameters. (It
+            also has boolean parameters, represented by integers, but no
+            parameter is currently defined as a vector of booleans.) If
+            this argument is set to something other than float, ctypes
+            will convert the values to integers and call the native
+            functions that handle integers.
+
+    '''
+    # Get the native function and pointer type needed.
+    setv_fn, c_pointer = ((vgSetfv, c_float_p) if type_ is float else
+                          (vgSetiv, c_int_p))
+
+    # Construct the setter function, with the above details baked in.
+    def setter(self, val):
+        size = len(val)
+        array = (c_pointer * size)(*val)
+        setv_fn(param_id, size, array)
+
+    return setter
+
 def _get(param, name, values, type_=int):
     '''Create a read-only property with a scalar value.
 
@@ -138,19 +228,44 @@ def _get(param, name, values, type_=int):
         name -- A human-readable name for the property.
         values -- A human-readable description of the values this
             property can have.
-        type_ -- The type of this property, either int or float. If
-            omitted, the default is int.
+        type_ -- The type of this property. OpenVG only directly allows
+            integer or floating-point parameters, although it also has
+            boolean parameters represented by integers. If this argument
+            is set to something other than float, OpenVG will provide an
+            integer which will then be converted to the supplied type.
+            If omitted, the default is int.
 
     '''
     param_id = _params[param]
-    get_fn = {int: vgGeti, float: vgGetf}[type_]
+    get_fn = (vgGetf if type_ is float else vgGeti)
     return property(fget=lambda self: type_(get_fn(param_id)),
                     doc=('The {} (read-only).\n\n'
                          '    Possible values are {}.\n'.format(name, values)))
 
-def _getv(param, type_=int):
-    '''Create a read-only property with a vector value.'''
-    pass
+def _getv(param, name, values, type_=int, known_size=None):
+    '''Create a read-only property with a vector value.
+
+    Keyword arguments:
+        param -- A key from _params identifying the context parameter.
+        name -- A human-readable name for the property.
+        values -- A human-readable description of the values this
+            property can have.
+        type_ -- The data type stored in this vector. OpenVG only
+            directly allows integer or floating-point parameters. (It
+            also has boolean parameters, represented by integers, but no
+            parameter is currently defined as a vector of booleans.) If
+            this argument is set to something other than float, OpenVG
+            will provide an integer which will then be converted to the
+            supplied type. If omitted, the default is int.
+        known_size -- The fixed size of this vector, if it has one. If
+            omitted or None, the vector will be dynamically sized each
+            time it is read.
+
+    '''
+    param_id = _params[param]
+    return property(fget=_get_vector(param_id, type_, known_size),
+                    doc=('The {} (read-only).\n\n'
+                         '    Possible values are {}.\n'.format(name, values)))
 
 def _getset(param, name, values, type_=int):
     '''Create a read/write property with a scalar value.
@@ -160,22 +275,29 @@ def _getset(param, name, values, type_=int):
         name -- A human-readable name for the property.
         values -- A human-readable description of the values this
             property can take.
-        type_ -- The type of this property, one of int, float or bool.
+        type_ -- The type of this property. OpenVG only directly allows
+            integer or floating-point parameters, although it also has
+            boolean parameters represented by integers. If this argument
+            is set to something other than float, OpenVG will provide an
+            integer which will then be converted to the supplied type.
             If omitted, the default is int.
 
     '''
     param_id = _params[param]
-    get_fn, set_fn, c_type = {int: (vgGeti, vgSeti, c_int),
-                              bool: (vgGeti, vgSeti, c_int),
-                              float: (vgGetf, vgSetf, c_float)}[type_]
+    (get_fn, set_fn, c_type) = ((vgGetf, vgSetf, c_float) if type_ is float
+                                else (vgGeti, vgSeti, c_int))
     return property(fget=lambda self: type_(get_fn(param_id)),
                     fset=lambda self, val: set_fn(param_id, c_type(val)),
                     doc=('The {}.\n\n'
                          '    Legal values are {}.\n'.format(name, values)))
 
-def _getsetv(param, name, values_tuple, type_=int):
+def _getsetv(param, name, values, type_=int, known_size=None):
     '''Create a read/write property with a vector value.'''
-    pass
+    param_id = _params[param]
+    return property(fget=_get_vector(param_id, type_, known_size),
+                    fset=_set_vector(param_id, type_),
+                    doc=('The {}.\n\n'
+                         '    Legal values are {}.\n'.format(name, values)))
 
 # The OpenVG context itself.
 class Context(pegl.context.Context):
@@ -260,10 +382,62 @@ class Context(pegl.context.Context):
 
         assert self.api == 'OpenVG'
 
+    @staticmethod
+    def flush():
+        '''Force operations on the current context to finish.
+
+        Calling this function will ensure that any outstanding operations
+        will finish in finite time, but it will not block while waiting
+        for completion of those operations.
+
+        '''
+        vgFlush()
+
+    @staticmethod
+    def finish():
+        '''Force operations on the current context to finish.
+
+        When called, this function will not return until all outstanding
+        operations are complete.
+
+        '''
+        vgFinish()
+
     matrix_mode = _getset('MATRIX_MODE', 'transform matrix mode',
                           'contained in the MatrixMode named tuple')
     fill_rule = _getset('FILL_RULE', 'path fill rule',
                         'contained in the FillRule named tuple')
+    image_quality = _getset('IMAGE_QUALITY', '',
+                            'contained in the ImageQuality named tuple')
+    rendering_quality = _getset('RENDERING_QUALITY', '', #TODO
+                                'contained in the RenderingQuality named tuple')
+    blend_mode = _getset('BLEND_MODE', '', #TODO
+                         'contained in the BlendMode named tuple')
+    image_mode = _getset('IMAGE_MODE', '', #TODO
+                         'contained in the ImageMode named tuple')
+    scissor_rects = _getsetv('SCISSOR_RECTS', '', #TODO
+                             # TODO: Flatten the tuple of 4-tuples! This needs
+                             # some special handling to be written into either
+                             # _getsetv or _set_vector (not sure which). And
+                             # I should probably unflatten them on read, too.
+                             '4-tuples of (x, y, width, height) for each '
+                             'scissoring rectangle')
+    # TODO: One property for both of these.
+    color_transform = _getset('COLOR_TRANSFORM', '', #TODO
+                              'booleans', type_=bool)
+    color_transform_values = _getsetv('COLOR_TRANSFORM_VALUES', '', #TODO
+                                      'eight color components (red, green, '
+                                      'blue, alpha for XX and YY)',
+                                      type_=float, known_size=8)
+    # TODO: One property for all stroke parameters.
+    stroke_line_width = _getset('STROKE_LINE_WIDTH', '', #TODO
+                                'non-negative floats', type_=float)
+    stroke_cap_style = _getset('STROKE_CAP_STYLE', '', #TODO
+                               'contained in the CapStyle named tuple')
+    stroke_join_style = _getset('STROKE_JOIN_STYLE', '', #TODO
+                                'contained in the JoinStyle named tuple')
+    stroke_miter_limit = _getset('STROKE_MITER_LIMIT', '', #TODO
+                                 'non-negative floats', type_=float)
 
     max_kernel_size = _get('MAX_KERNEL_SIZE', 'maximum kernel size',
                            'positive integers')
