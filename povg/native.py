@@ -2,7 +2,7 @@
 
 '''OpenVG library interface.'''
 
-# Copyright © 2012 Tim Pederick.
+# Copyright © 2013 Tim Pederick.
 #
 # This file is part of Povg.
 #

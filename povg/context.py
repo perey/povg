@@ -8,7 +8,7 @@ should not import this module. Other Povg modules will not import this
 module themselves.
 
 '''
-# Copyright © 2012 Tim Pederick.
+# Copyright © 2013 Tim Pederick.
 #
 # This file is part of Povg.
 #

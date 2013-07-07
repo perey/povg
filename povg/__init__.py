@@ -2,7 +2,7 @@
 
 '''Povg: A Python wrapper for the OpenVG 1.1 API.'''
 
-# Copyright © 2012 Tim Pederick.
+# Copyright © 2013 Tim Pederick.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
