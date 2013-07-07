@@ -19,12 +19,91 @@
 
 __author__ = 'Tim Pederick'
 __version__ = '0.0_1.1' # The _N.n part is the OpenVG API version wrapped.
-__all__ = ['context', 'native',
+__all__ = ['context', 'matrix', 'native',
+           'flatten', 'unflatten',
            'OpenVGError', 'BadHandleError', 'IllegalArgumentError',
            'OutOfMemoryError', 'PathCapabilityError',
            'UnsupportedImageFormatError', 'UnsupportedPathFormatError',
            'ImageInUseError', 'NoContextError',
            'error_codes', 'vgu_error_codes']
+
+# Standard library imports.
+from itertools import chain
+
+# Utility function for flattening sequences of tuples.
+def flatten(tuples, n=None):
+    '''Flatten a sequence of tuples.
+
+    The input sequence is flattened at the first dimension. Deeper
+    nesting is not touched.
+        >>> flatten(((1, 2, 3, 4), (7, 6, 5), (0,)))
+        (1, 2, 3, 4, 7, 6, 5, 0)
+        >>> flatten(((1, 2, (3, 4)), (7, (6, 5))))
+        (1, 2, (3, 4), 7, (6, 5))
+
+    Optionally, a tuple size n can be enforced on the data.
+        >>> flatten(((1, 4, 7), (2, 5, 8), (3, 6, 9)), 3)
+        (1, 4, 7, 2, 5, 8, 3, 6, 9)
+        >>> flatten(((1, 4, 7), (2, 5, 8), (0, 3, 6, 9)), 3)
+        Traceback (most recent call last):
+            ...
+        ValueError: length mismatch in sequence of tuples
+
+    Keyword arguments:
+        tuples -- The sequence of tuples to flatten.
+        n -- The number of elements to enforce in each tuple. If omitted
+            or None, the tuples may be of any size.
+    Returns:
+        A tuple containing all the elements of the tuples passed.
+
+    '''
+    if n is not None and not all(len(t) == n for t in tuples):
+        raise ValueError('length mismatch in sequence of tuples')
+
+    # Technically this isn't limited to sequences of tuples, but that's its
+    # intended use in this package, and the return value will be a tuple.
+    return tuple(chain.from_iterable(tuples))
+
+# Utility function for flattening sequences of tuples.
+def unflatten(seq, n, strict=True):
+    '''Unflatten a tuple representing a sequence of tuples.
+
+    By default, the tuple must contain an exact multiple of n items.
+        >>> unflatten((1, 4, 7, 2, 5, 8, 3, 6, 9), 3)
+        ((1, 4, 7), (2, 5, 8), (3, 6, 9))
+        >>> unflatten((1, 4, 7, 2, 5, 8, 3, 6), 3)
+        Traceback (most recent call last):
+            ...
+        ValueError: cannot evenly divide 8 items into 3-tuples
+
+    Strict mode can be turned off, in which case any extra items will be
+    put into a last tuple of less than n items.
+        >>> unflatten((1, 4, 7, 2, 5, 8, 3, 6), 3, strict=False)
+        ((1, 4, 7), (2, 5, 8), (3, 6))
+
+    Keyword arguments:
+        seq -- The sequence of flattened tuples.
+        n -- The number of elements to put in each tuple.
+        strict -- Whether to enforce tuple size. If False, any elements
+            past the end of the last complete n-tuple will be placed in
+            a shorter tuple. If True (the default), excess elements will
+            cause a ValueError to be raised.
+    Returns:
+        A tuple of n-tuples.
+
+    '''
+    count, extra = divmod(len(seq), n)
+    if strict and extra != 0:
+        raise ValueError('cannot evenly divide {} items into '
+                         '{}-tuples'.format(len(seq), n))
+    tuples = tuple(tuple(seq[n * tnum:n * (tnum + 1)])
+                   for tnum in range(count))
+    if extra != 0:
+        tail = tuple(seq[-extra:])
+        return tuples + (tail,)
+    else:
+        return tuples
+
 
 # Exceptions for handling OpenVG errors.
 class OpenVGError(Exception):
@@ -96,3 +175,6 @@ vgu_error_codes = {0: None, # No error.
                    0xF004: BadWarpError}
 
                    
+if __name__ == '__main__':
+    import doctest
+    doctest.testmod()
