@@ -69,14 +69,14 @@ _params = {
     'STROKE_CAP_STYLE': 0x1111,
     'STROKE_JOIN_STYLE': 0x1112,
     'STROKE_MITER_LIMIT': 0x1113,
+
+    # Stroke dash parameters
     'STROKE_DASH_PATTERN': 0x1114,
     'STROKE_DASH_PHASE': 0x1115,
     'STROKE_DASH_PHASE_RESET': 0x1116,
 
-    # Tiling edge fill colour
+    # Fill and clear colours
     'TILE_FILL_COLOR': 0x1120,
-
-    # Clear colour
     'CLEAR_COLOR': 0x1121,
 
     # Glyph origin
@@ -86,11 +86,9 @@ _params = {
     'PIXEL_LAYOUT': 0x1140,
     'SCREEN_LAYOUT': 0x1141,
 
-    # Filter source format selection
+    # Filter settings
     'FILTER_FORMAT_LINEAR': 0x1150,
     'FILTER_FORMAT_PREMULTIPLIED': 0x1151,
-
-    # Filter destination write enable mask
     'FILTER_CHANNEL_MASK': 0x1152,
 
     # Read-only implementation limits
@@ -528,6 +526,55 @@ class Context(pegl.context.Context):
                                  'past which miter joins are converted to '
                                  'bevel joins',
                                  'non-negative floats', type_=float)
+
+    # Stroke dash parameters
+    # TODO: One property for all dash parameters.
+    stroke_dash_pattern = _getsetv('STROKE_DASH_PATTERN', 'series of "on" '
+                                   'and "off" lengths in the dash pattern',
+                                   'sequences of even numbers of floats (an '
+                                   'empty sequence disables dashes)',
+                                   type_=float)
+    stroke_dash_phase = _getset('STROKE_DASH_PHASE', 'offset before the dash '
+                                'pattern begins', 'floats', type_=float)
+    stroke_dash_phase_reset = _getset('STROKE_DASH_PHASE_RESET',
+                                      'reset the dash pattern on each subpath',
+                                      type_=bool)
+
+    # Fill and clear colours
+    tile_fill_color = _getsetv('TILE_FILL_COLOR', 'fill colour used for the '
+                              'TILE_FILL tiling mode', '4-tuples of (R, G, B, '
+                              'A) floats in the range [0, 1] (other values '
+                               'will be clamped)', type_=float, known_size=4)
+    clear_color = _getsetv('CLEAR_COLOR', 'colour used when fast-clearing '
+                           'regions', '4-tuples of (R, G, B, A) floats in the '
+                           'range [0, 1] (other values will be clamped)',
+                           type_=float, known_size=4)
+
+    # Glyph origin
+    glyph_origin = _getsetv('GLYPH_ORIGIN', 'the current position of the '
+                            'glyph "cursor"', '2-tuples of (x, y) floats',
+                            type_=float, known_size=2)
+
+    # Pixel layout information
+    pixel_layout = _getset('PIXEL_LAYOUT', 'pixel geometry hint supplied to '
+                           'the renderer', 'contained in the PixelLayout '
+                           'named tuple', from_nt=PixelLayout)
+    # This isn't specified as read-only, but the description implies it.
+    screen_layout = _get('SCREEN_LAYOUT', 'pixel geometry of the current '
+                         'display device', 'contained in the PixelLayout '
+                         'named tuple', from_nt=PixelLayout)
+
+    # Filter settings
+    # TODO: One property for both filter source format conversions.
+    filter_format_linear = _getset('FILTER_FORMAT_LINEAR', 'filter formats are '
+                                   'converted to a linear colour space',
+                                   'booleans', type_=bool)
+    filter_format_premult = _getset('FILTER_FORMAT_PREMULTIPLIED', 'filter '
+                                    'formats are converted to a premultiplied '
+                                    'colour space', 'booleans', type_=bool)
+    filter_channel_mask = _getset('FILTER_CHANNEL_MASK', 'colour channels of '
+                                  'the filtered image to write', 'bitmasks of '
+                                  'red, green, blue and alpha') # TODO: Bitmask!
 
     # Read-only implementation limits
     max_scissor_rects = _get('MAX_SCISSOR_RECTS', 'maximum number of '
