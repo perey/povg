@@ -64,7 +64,7 @@ def flatten(tuples, n=None):
     # intended use in this package, and the return value will be a tuple.
     return tuple(chain.from_iterable(tuples))
 
-# Utility function for flattening sequences of tuples.
+# Utility function for "unflattening" into a sequence of tuples.
 def unflatten(seq, n, strict=True):
     '''Unflatten a tuple representing a sequence of tuples.
 

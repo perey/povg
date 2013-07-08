@@ -40,6 +40,7 @@ import pegl.context
 import pegl.attribs
 
 # Local library imports.
+from . import flatten, unflatten
 from .native import (vgFlush, vgFinish, vgSeti, vgSetf, vgSetiv, vgSetfv,
                      vgGetVectorSize, vgGeti, vgGetf, vgGetiv, vgGetfv,
                      c_int_p, c_float_p)
@@ -148,7 +149,7 @@ PixelLayout = namedtuple('PixelLayout_tuple',
 # Context parameter getter/setter factories.
 # TODO: Factory style (perhaps only for _getset()) that is aware of named
 # tuples being used for its legal values.
-def _get_vector(param_id, type_=int, known_size=None):
+def _get_vector(param_id, type_=int, flattened=False, known_size=None):
     '''Dynamically create a getter function for a vector parameter.
 
     The functions thus created have all implementation details built in
@@ -166,29 +167,44 @@ def _get_vector(param_id, type_=int, known_size=None):
             this argument is set to something other than float, OpenVG
             will provide an integer which will then be converted to the
             supplied type. If omitted, the default is int.
+        flattened -- Whether or not the values are actually sequences of
+            vectors that need to be "unflattened" after reading. The
+            default is False; if True, known_size needs to be set.
         known_size -- The fixed size of this vector, if it has one. If
             omitted or None, the vector will be dynamically sized each
-            time it is read.
+            time it is read. If flattened is True, the size applies to
+            each vector in the sequence, not the sequence itself.
 
     '''
     # Get the native function and pointer type needed.
     getv_fn, c_pointer = ((vgGetfv, c_float_p) if type_ is float else
                           (vgGetiv, c_int_p))
-    # Create a function that either returns the static size (if we know what
-    # that is) or fetches the current size when called.
-    sizer = ((lambda: known_size) if known_size is not None else
-             (lambda: vgGetVectorSize(param_id)))
 
     # Construct the getter function, with the above details baked in.
-    def getter(self):
-        size = sizer()
-        array = (c_pointer * size)()
-        getv_fn(param_id, size, array)
-        return tuple(type_(elem) for elem in array)
+    if flattened:
+        if known_size is None:
+            raise TypeError('known_size must be supplied if flattened is True')
+
+        def getter(self):
+            size = vgGetVectorSize(param_id)
+            array = (c_pointer * size)()
+            getv_fn(param_id, size, array)
+            return unflatten(type_(elem) for elem in array, known_size)
+    else:
+        # Create a function that either returns the static size (if we know
+        # what that is) or fetches the current size when called.
+        sizer = ((lambda: known_size) if known_size is not None else
+                 (lambda: vgGetVectorSize(param_id)))
+
+        def getter(self):
+            size = sizer()
+            array = (c_pointer * size)()
+            getv_fn(param_id, size, array)
+            return tuple(type_(elem) for elem in array)
 
     return getter
 
-def _set_vector(param_id, type_=int):
+def _set_vector(param_id, type_=int, flattened=False, known_size=None):
     '''Dynamically create a setter function for a vector parameter.
 
     The functions thus created have all implementation details built in
@@ -206,6 +222,13 @@ def _set_vector(param_id, type_=int):
             this argument is set to something other than float, ctypes
             will convert the values to integers and call the native
             functions that handle integers.
+        flattened -- Whether or not the values are actually sequences of
+            vectors that need to be flattened before writing. The
+            default is False.
+        known_size -- The fixed size of this vector, if it has one. This
+            parameter is ignored (and the actual len() of the value
+            supplied is used) unless flattened is True, in which case
+            the value applies to each vector in the sequence.
 
     '''
     # Get the native function and pointer type needed.
@@ -213,10 +236,17 @@ def _set_vector(param_id, type_=int):
                           (vgSetiv, c_int_p))
 
     # Construct the setter function, with the above details baked in.
-    def setter(self, val):
-        size = len(val)
-        array = (c_pointer * size)(*val)
-        setv_fn(param_id, size, array)
+    if flattened:
+        def setter(self, val):
+            flat = flatten(val, known_size)
+            size = len(flat)
+            array = (c_pointer * size)(*flat)
+            setv_fn(param_id, size, array)
+    else:
+        def setter(self, val):
+            size = len(val)
+            array = (c_pointer * size)(*val)
+            setv_fn(param_id, size, array)
 
     return setter
 
@@ -242,7 +272,7 @@ def _get(param, name, values, type_=int):
                     doc=('The {} (read-only).\n\n'
                          '    Possible values are {}.\n'.format(name, values)))
 
-def _getv(param, name, values, type_=int, known_size=None):
+def _getv(param, name, values, type_=int, flattened=False, known_size=None):
     '''Create a read-only property with a vector value.
 
     Keyword arguments:
@@ -257,13 +287,19 @@ def _getv(param, name, values, type_=int, known_size=None):
             this argument is set to something other than float, OpenVG
             will provide an integer which will then be converted to the
             supplied type. If omitted, the default is int.
+        flattened -- Whether or not the property is a sequence of
+            vectors that needs to be "unflattened" after reading. If
+            omitted, the default is False. If True, known_size must be
+            specified.
         known_size -- The fixed size of this vector, if it has one. If
             omitted or None, the vector will be dynamically sized each
-            time it is read.
+            time it is read. If flattened is True, this parameter is
+            required, and specifies the size of each vector in the
+            sequence, not of the sequence itself.
 
     '''
     param_id = _params[param]
-    return property(fget=_get_vector(param_id, type_, known_size),
+    return property(fget=_get_vector(param_id, type_, flattened, known_size),
                     doc=('The {} (read-only).\n\n'
                          '    Possible values are {}.\n'.format(name, values)))
 
@@ -291,7 +327,7 @@ def _getset(param, name, values, type_=int):
                     doc=('The {}.\n\n'
                          '    Legal values are {}.\n'.format(name, values)))
 
-def _getsetv(param, name, values, type_=int, known_size=None):
+def _getsetv(param, name, values, type_=int, flattened=False, known_size=None):
     '''Create a read/write property with a vector value.
 
     Keyword arguments:
@@ -306,11 +342,19 @@ def _getsetv(param, name, values, type_=int, known_size=None):
             than float, OpenVG will provide an integer which will then
             be converted to the supplied type. If omitted, the default
             is int.
+        flattened -- Whether or not the property is a sequence of
+            vectors that needs to be flattened on write and restored on
+            read. If omitted, the default is False.
+        known_size -- The known size of the vector values of this
+            property. If omitted or None, the size will be checked on
+            each read and write. If flattened is True, this parameter is
+            required, and specifies the size of each vector in the
+            sequence, not of the sequence itself.
 
     '''
     param_id = _params[param]
-    return property(fget=_get_vector(param_id, type_, known_size),
-                    fset=_set_vector(param_id, type_),
+    return property(fget=_get_vector(param_id, type_, flattened, known_size),
+                    fset=_set_vector(param_id, type_, flattened, known_size),
                     doc=('The {}.\n\n'
                          '    Legal values are {}.\n'.format(name, values)))
 
@@ -422,7 +466,7 @@ class Context(pegl.context.Context):
                           'contained in the MatrixMode named tuple')
     fill_rule = _getset('FILL_RULE', 'path fill rule',
                         'contained in the FillRule named tuple')
-    image_quality = _getset('IMAGE_QUALITY', '',
+    image_quality = _getset('IMAGE_QUALITY', '', # TODO
                             'contained in the ImageQuality named tuple')
     rendering_quality = _getset('RENDERING_QUALITY', '', #TODO
                                 'contained in the RenderingQuality named tuple')
@@ -431,12 +475,9 @@ class Context(pegl.context.Context):
     image_mode = _getset('IMAGE_MODE', '', #TODO
                          'contained in the ImageMode named tuple')
     scissor_rects = _getsetv('SCISSOR_RECTS', '', #TODO
-                             # TODO: Flatten the tuple of 4-tuples! This needs
-                             # some special handling to be written into either
-                             # _getsetv or _set_vector (not sure which). And
-                             # I should probably unflatten them on read, too.
                              '4-tuples of (x, y, width, height) for each '
-                             'scissoring rectangle')
+                             'scissoring rectangle',
+                             flattened=True, known_size=4)
     # TODO: One property for both of these.
     color_transform = _getset('COLOR_TRANSFORM', '', #TODO
                               'booleans', type_=bool)
