@@ -55,7 +55,9 @@ _params = {
     'BLEND_MODE': 0x1104,
     'IMAGE_MODE': 0x1105,
 
-    # Scissoring rectangles
+    # Alpha masking and scissoring
+    'MASKING': 0x1130,
+    'SCISSORING': 0x1131,
     'SCISSOR_RECTS': 0x1106,
 
     # Colour transformation
@@ -79,10 +81,6 @@ _params = {
 
     # Glyph origin
     'GLYPH_ORIGIN': 0x1122,
-
-    # Alpha masking and scissoring
-    'MASKING': 0x1130,
-    'SCISSORING': 0x1131,
 
     # Pixel layout information
     'PIXEL_LAYOUT': 0x1140,
@@ -147,8 +145,6 @@ PixelLayout = namedtuple('PixelLayout_tuple',
                          )(0x1300, 0x1301, 0x1302, 0x1303, 0x1304)
 
 # Context parameter getter/setter factories.
-# TODO: Factory style (perhaps only for _getset()) that is aware of named
-# tuples being used for its legal values.
 def _get_vector(param_id, type_=int, flattened=False, known_size=None):
     '''Dynamically create a getter function for a vector parameter.
 
@@ -257,7 +253,7 @@ def _get(param, name, values, type_=int):
         param -- A key from _params identifying the context parameter.
         name -- A human-readable name for the property.
         values -- A human-readable description of the values this
-            property can have.
+            property can have. Ignored if type_ is bool.
         type_ -- The type of this property. OpenVG only directly allows
             integer or floating-point parameters, although it also has
             boolean parameters represented by integers. If this argument
@@ -268,9 +264,14 @@ def _get(param, name, values, type_=int):
     '''
     param_id = _params[param]
     get_fn = (vgGetf if type_ is float else vgGeti)
+
+    docstring = ('Whether or not {} (read-only).\n'.format(name)
+                 if type_ is bool else
+                 'The {} (read-only).\n\n    Possible values are '
+                 '{}.\n'.format(name, values))
+
     return property(fget=lambda self: type_(get_fn(param_id)),
-                    doc=('The {} (read-only).\n\n'
-                         '    Possible values are {}.\n'.format(name, values)))
+                    doc=docstring)
 
 def _getv(param, name, values, type_=int, flattened=False, known_size=None):
     '''Create a read-only property with a vector value.
@@ -303,7 +304,7 @@ def _getv(param, name, values, type_=int, flattened=False, known_size=None):
                     doc=('The {} (read-only).\n\n'
                          '    Possible values are {}.\n'.format(name, values)))
 
-def _getset(param, name, values, type_=int):
+def _getset(param, name, values, type_=int, from_nt=None):
     '''Create a read/write property with a scalar value.
 
     Keyword arguments:
@@ -317,15 +318,21 @@ def _getset(param, name, values, type_=int):
             is set to something other than float, OpenVG will provide an
             integer which will then be converted to the supplied type.
             If omitted, the default is int.
+        from_nt -- An optional named tuple instance from which values
+            must be drawn.
 
     '''
+    # TODO: Do something useful with from_nt.
     param_id = _params[param]
     (get_fn, set_fn, c_type) = ((vgGetf, vgSetf, c_float) if type_ is float
                                 else (vgGeti, vgSeti, c_int))
+
+    docstring = ('Whether or not {}.\n'.format(name) if type_ is bool else
+                 'The {}.\n\n    Legal values are {}.\n'.format(name, values))
+
     return property(fget=lambda self: type_(get_fn(param_id)),
                     fset=lambda self, val: set_fn(param_id, c_type(val)),
-                    doc=('The {}.\n\n'
-                         '    Legal values are {}.\n'.format(name, values)))
+                    doc=docstring)
 
 def _getsetv(param, name, values, type_=int, flattened=False, known_size=None):
     '''Create a read/write property with a vector value.
@@ -462,38 +469,98 @@ class Context(pegl.context.Context):
         '''
         vgFinish()
 
+    # Mode settings
     matrix_mode = _getset('MATRIX_MODE', 'transform matrix mode',
-                          'contained in the MatrixMode named tuple')
+                          'contained in the MatrixMode named tuple',
+                          from_nt=MatrixMode)
     fill_rule = _getset('FILL_RULE', 'path fill rule',
-                        'contained in the FillRule named tuple')
-    image_quality = _getset('IMAGE_QUALITY', '', # TODO
-                            'contained in the ImageQuality named tuple')
-    rendering_quality = _getset('RENDERING_QUALITY', '', #TODO
-                                'contained in the RenderingQuality named tuple')
-    blend_mode = _getset('BLEND_MODE', '', #TODO
-                         'contained in the BlendMode named tuple')
-    image_mode = _getset('IMAGE_MODE', '', #TODO
-                         'contained in the ImageMode named tuple')
-    scissor_rects = _getsetv('SCISSOR_RECTS', '', #TODO
+                        'contained in the FillRule named tuple',
+                        from_nt=FillRule)
+    image_quality = _getset('IMAGE_QUALITY', 'image resampling quality',
+                            'contained in the ImageQuality named tuple',
+                            from_nt=ImageQuality)
+    rendering_quality = _getset('RENDERING_QUALITY',
+                                'overall rendering quality',
+                                'contained in the RenderingQuality '
+                                'named tuple', from_nt=RenderingQuality)
+    blend_mode = _getset('BLEND_MODE', 'blending mode (from a subset of '
+                         'Porter-Duff modes, plus some extras) to apply',
+                         'contained in the BlendMode named tuple',
+                         from_nt=BlendMode)
+    image_mode = _getset('IMAGE_MODE', 'image drawing method',
+                         'contained in the ImageMode named tuple',
+                         from_nt=ImageMode)
+
+    # Alpha masking and scissoring
+    masking = _getset('MASKING', 'masking is active',
+                      'booleans', type_=bool)
+    scissoring = _getset('SCISSORING', 'scissoring is active',
+                         'booleans', type_=bool)
+    scissor_rects = _getsetv('SCISSOR_RECTS', 'scissoring rectangles, which '
+                             'bound the drawing surface when scissoring is '
+                             'enabled',
                              '4-tuples of (x, y, width, height) for each '
                              'scissoring rectangle',
                              flattened=True, known_size=4)
+
+    # Colour transformation
     # TODO: One property for both of these.
-    color_transform = _getset('COLOR_TRANSFORM', '', #TODO
+    color_transform = _getset('COLOR_TRANSFORM',
+                              'colour transformation is active',
                               'booleans', type_=bool)
-    color_transform_values = _getsetv('COLOR_TRANSFORM_VALUES', '', #TODO
+    color_transform_values = _getsetv('COLOR_TRANSFORM_VALUES', 'parameters '
+                                      'of the colour transformation',
                                       'eight color components (red, green, '
-                                      'blue, alpha for XX and YY)',
+                                      'blue, alpha for scale and for bias)',
                                       type_=float, known_size=8)
+
+    # Stroke parameters
     # TODO: One property for all stroke parameters.
-    stroke_line_width = _getset('STROKE_LINE_WIDTH', '', #TODO
+    stroke_line_width = _getset('STROKE_LINE_WIDTH', 'width of the stroke',
                                 'non-negative floats', type_=float)
-    stroke_cap_style = _getset('STROKE_CAP_STYLE', '', #TODO
-                               'contained in the CapStyle named tuple')
-    stroke_join_style = _getset('STROKE_JOIN_STYLE', '', #TODO
-                                'contained in the JoinStyle named tuple')
-    stroke_miter_limit = _getset('STROKE_MITER_LIMIT', '', #TODO
+    stroke_cap_style = _getset('STROKE_CAP_STYLE', 'style of the stroke ends',
+                               'contained in the CapStyle named tuple',
+                               from_nt=CapStyle)
+    stroke_join_style = _getset('STROKE_JOIN_STYLE', 'style of stroke joins',
+                                'contained in the JoinStyle named tuple',
+                                from_nt=JoinStyle)
+    stroke_miter_limit = _getset('STROKE_MITER_LIMIT', 'miter length limit, '
+                                 'past which miter joins are converted to '
+                                 'bevel joins',
                                  'non-negative floats', type_=float)
 
-    max_kernel_size = _get('MAX_KERNEL_SIZE', 'maximum kernel size',
-                           'positive integers')
+    # Read-only implementation limits
+    max_scissor_rects = _get('MAX_SCISSOR_RECTS', 'maximum number of '
+                             'scissoring rectangles supported',
+                             'positive integers (minimum 32)')
+    max_dash_count = _get('MAX_DASH_COUNT', 'maximum number of dash segments '
+                          'that may be specified',
+                          'positive integers (minimum 16)')
+    max_kernel_size = _get('MAX_KERNEL_SIZE', 'maximum kernel size (width '
+                           'and/or height) for convolution',
+                           'positive integers (minimum 7)')
+    max_separable_kernel_size = _get('MAX_SEPARABLE_KERNEL_SIZE', 'maximum '
+                                     'kernel size for separable convolution',
+                                     'positive integers (minimum 15)')
+    max_color_ramp_stops = _get('MAX_COLOR_RAMP_STOPS', 'maximum number of '
+                                'gradient stops that may be specified',
+                                'positive integers (minimum 32)')
+    max_image_width = _get('MAX_IMAGE_WIDTH', 'maximum pixel width of images '
+                           'and masks', 'positive integers (minimum 256)')
+    max_image_height = _get('MAX_IMAGE_HEIGHT', 'maximum pixel height of '
+                           'images and masks',
+                            'positive integers (minimum 256)')
+    max_image_pixels = _get('MAX_IMAGE_PIXELS', 'maximum number of pixels in '
+                            'an image or mask',
+                            'positive integers (minimum 65536)')
+    max_image_bytes = _get('MAX_IMAGE_BYTES', 'maximum bytes of image data in '
+                           'an image', 'positive integers (minimum 65536)')
+    max_float = _get('MAX_FLOAT', 'largest floating-point number accepted by '
+                     'this implementation', 'positive floating-point numbers '
+                     '(minimum 1E+10)', type_=float)
+    max_gaussian_std_deviation = _get('MAX_GAUSSIAN_STD_DEVIATION',
+                                      'largest standard deviation accepted '
+                                      'for Gaussian blur',
+                                      'positive floating-point numbers '
+                                      '(minimum 16.0)',
+                                      type_=float)
