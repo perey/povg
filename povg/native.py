@@ -18,10 +18,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with Povg. If not, see <http://www.gnu.org/licenses/>.
-__all__ = ['c_ibool', 'c_enum', 'c_bitfield', 'c_handle', 'c_float2',
-           'c_ubyte_p', 'c_short_p', 'c_int_p', 'c_uint_p', 'c_float_p',
-           'INVALID_HANDLE',
-           'vgFlush', 'vgFinish', 'vgSetf', 'vgSeti', 'vgSetfv', 'vgSetiv',
+__all__ = ['vgFlush', 'vgFinish', 'vgSetf', 'vgSeti', 'vgSetfv', 'vgSetiv',
            'vgGetf', 'vgGeti', 'vgGetVectorSize', 'vgGetfv', 'vgGetiv',
            'vgSetParameterf', 'vgSetParameteri', 'vgSetParameterfv',
            'vgSetParameteriv', 'vgGetParameterf', 'vgGetParameteri',
@@ -44,17 +41,32 @@ __all__ = ['c_ibool', 'c_enum', 'c_bitfield', 'c_handle', 'c_float2',
            'vgSetGlyphToImage', 'vgClearGlyph', 'vgDrawGlyph', 'vgDrawGlyphs',
            'vgColorMatrix', 'vgConvolve', 'vgSeparableConvolve',
            'vgGaussianBlur', 'vgLookup', 'vgLookupSingle', 'vgHardwareQuery',
-           'vgGetString']
+           'vgGetString',
+           # Native types reusable in extension modules.
+           'c_ibool', 'c_enum', 'c_bitfield', 'c_handle', 'c_float2',
+           'c_ubyte_p', 'c_short_p', 'c_int_p', 'c_uint_p', 'c_float_p',
+           'INVALID_HANDLE']
 
 # Standard library imports.
-from ctypes import (CDLL, POINTER, c_byte, c_ubyte, c_short, c_int, c_uint,
+import ctypes
+from ctypes import (POINTER, c_byte, c_ubyte, c_short, c_int, c_uint,
                     c_float, c_char_p, c_void_p)
 
 # Local imports.
-from . import OpenVGError, error_codes, vgu_error_codes
+from . import OpenVGError, error_codes##, vgu_error_codes
 
 # Native library import.
-vg = CDLL('libOpenVG.so.1') # TODO: Cross-platform loading.
+libname = 'libOpenVG'
+if sys.platform.startswith('linux'):
+    libclass, libext = ctypes.CDLL, '.so'
+elif sys.platform == 'darwin':
+    libclass, libext = ctypes.CDLL, '.dylib'
+elif sys.platform == 'win32':
+    libclass, libext = ctypes.WinDLL, '.dll'
+else:
+    raise ImportError('Povg not supported on {}'.format(sys.platform))
+       
+vg = libclass(libname + libext)
 
 # Type definitions.
 c_ibool = c_enum = c_bitfield = c_handle = c_uint
@@ -64,13 +76,18 @@ c_float2 = c_float * 2
                                               c_float))
 INVALID_HANDLE = c_handle(0)
 
-# Trap EGL errors. We set the argument and return types for
+# Trap OpenVG errors. We set the argument and return types for
 # "VGErrorCode vgGetError(void)" here, since we use it for error_check.
 vg.vgGetError.argtypes = ()
 vg.vgGetError.restype = c_enum
 
 def error_check(fn):
-    '''Check the OpenVG error trap after calling a function.'''
+    '''Check the OpenVG error trap after calling a function.
+
+    Keyword arguments:
+        fn -- The function to wrap with OpenVG error checking.
+
+    '''
     def wrapped_fn(*args, **kwargs):
         result = fn(*args, **kwargs)
         errcode = error_codes.get(vg.vgGetError(), OpenVGError)
