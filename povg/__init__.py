@@ -169,11 +169,6 @@ error_codes = {0: None, # No error.
                0x1005: UnsupportedPathFormatError, 0x1006: ImageInUseError,
                0x1007: NoContextError}
 
-vgu_error_codes = {0: None, # No error.
-                   0xF000: BadHandleError, 0xF001: IllegalArgumentError,
-                   0xF002: OutOfMemoryError, 0xF003: PathCapabilityError,
-                   0xF004: BadWarpError}
-
                    
 if __name__ == '__main__':
     import doctest
