@@ -19,13 +19,13 @@
 
 __author__ = 'Tim Pederick'
 __version__ = '0.0_1.1' # The _N.n part is the OpenVG API version wrapped.
-__all__ = ['context', 'matrix', 'native',
+__all__ = ['context', 'matrix', 'native', 'path',
            'flatten', 'unflatten',
            'OpenVGError', 'BadHandleError', 'IllegalArgumentError',
            'OutOfMemoryError', 'PathCapabilityError',
            'UnsupportedImageFormatError', 'UnsupportedPathFormatError',
            'ImageInUseError', 'NoContextError',
-           'error_codes', 'vgu_error_codes']
+           'error_codes']
 
 # Standard library imports.
 from itertools import chain
