@@ -107,3 +107,19 @@ class Path:
     @property
     def datatype(self):
         return _get_param(PathParams.DATATYPE)
+
+    @property
+    def scale(self):
+        return _get_param(PathParams.SCALE)
+
+    @property
+    def bias(self):
+        return _get_param(PathParams.BIAS)
+
+    @property
+    def num_segments(self): # TODO: Doesn't seem very Pythonic.
+        return _get_param(PathParams.NUM_SEGMENTS)
+
+    @property
+    def num_coords(self): # TODO: Ditto.
+        return _get_param(PathParams.NUM_COORDS)
