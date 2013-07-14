@@ -19,11 +19,14 @@
 
 # Standard library imports.
 from collections import namedtuple
+from ctypes import c_float
 
 # Local imports.
 from . import native, OpenVGError
+from .params import (PathFormats, PathDatatypes, PathCapabilities, PathParams,
+                     param_convert)
 
-# Objects for describing paths and segments.
+# Segment commands.
 PathSegments = namedtuple('SegmentCommands_tuple',
                           ('CLOSE_PATH', 'MOVE_TO', 'LINE_TO', 'HLINE_TO',
                            'VLINE_TO', 'QUAD_TO', 'CUBIC_TO', 'SQUAD_TO',
@@ -31,16 +34,17 @@ PathSegments = namedtuple('SegmentCommands_tuple',
                            'LCCWARC_TO', 'LCWARC_TO')
                           )(*range(13))
 
-PathFormats = namedtuple('PathFormats_tuple', ('STANDARD',))(0,)
-
-PathDatatypes = namedtuple('PathDatatypes_tuple',
-                           ('S_8', 'S_16', 'S_32', 'F')
-                           )(*range(4))
-
-# Function for assembling a segment command.
 def SegmentCommand(segment_type, is_absolute=True):
-    '''Get the OpenVG numeric value for a segment command.'''
+    '''Get the OpenVG numeric value for a segment command.
+
+    A segment command comprises the segment type number (from the
+    PathSegments named tuple), left-shifted one bit and with the low bit
+    set to 1 (if the segment coordinates are relative to the last path
+    position) or 0 (if they are absolute).
+
+    '''
     return 2 * segment_type + (0 if is_absolute else 1)
+
 
 class Path:
     '''Represents an OpenVG path, the core drawing primitive.
@@ -51,10 +55,12 @@ class Path:
         phandle -- The foreign object handle for this path.
 
     '''
-    def __init__(self, path_format=PathFormats.STANDARD,
-                 datatype=PathDatatypes.S_32, scale=1.0, bias=0.0,
+    def __init__(self, path_format=PathParams.default('FORMAT'),
+                 datatype=PathParams.default('DATATYPE'),
+                 scale=PathParams.default('SCALE'),
+                 bias=PathParams.default('BIAS'),
                  segment_capacity_hint=0, coord_capacity_hint=0,
-                 capabilities):
+                 capabilities=PathCapabilities(ALL=1)):
         self.capabilities = capabilities
         self.phandle = native.vgCreatePath(path_format, datatype, scale, bias,
                                            segment_capacity_hint,
@@ -79,10 +85,25 @@ class Path:
     def _get_param(self, param):
         '''Get the value of a path parameter.
 
+        All path parameters are read-only; some are set at path
+        creation, while others are automatically updated as segments are
+        added.
+
         Keyword arguments:
             param -- The identifier of the parameter requested.
 
         '''
-        get_fn = (native.vgGetParameterf if param in () else
+        # If param is not a known parameter type, PathParams.details[param]
+        # will raise a KeyError, which we allow to propagate upwards.
+        get_fn = (native.vgGetParameterf
+                  if PathParams.details[param].values is c_float else
                   native.vgGetParameteri)
-        return get_fn(self, param)
+        return param_convert(param, get_fn(self, param), PathParams)
+
+    @property
+    def path_format(self):
+        return _get_param(PathParams.FORMAT)
+
+    @property
+    def datatype(self):
+        return _get_param(PathParams.DATATYPE)
