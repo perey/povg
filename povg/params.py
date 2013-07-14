@@ -21,11 +21,18 @@
 from collections import namedtuple
 from ctypes import c_float, c_int
 
+# Local imports.
+from .native import c_float_p
+
 # TODO: Unless the objects that are (almost) identical to their pegl.attribs
 # counterparts are split out into a separate module that will serve both
 # libraries, this module may well be too large and will have to be turned into
 # a package like pegl.attribs. (If they ARE split out into a common module,
 # then pegl.attribs will shrink and can probably be turned into a module!)
+
+# Native type definitions.
+c_float4 = c_float * 4
+c_float5 = c_float * 5
 
 # Named tuple for storing the details of an parameter field. Note that the
 # "default" field may only contain the default for setting a parameter, not
@@ -325,3 +332,73 @@ class PathParams(Params):
                                      'this path', c_int, 0),
                NUM_COORDS: Details('The total number of coordinates across '
                                    'all segments of this path', c_int, 0.0)}
+
+
+# Parameters for paint objects.
+PaintTypes = namedtuple('PaintType_tuple', ('COLOR', 'LINEAR_GRADIENT',
+                                            'RADIAL_GRADIENT', 'PATTERN')
+                        )(*range(0x1b00, 0x1b04))
+SpreadModes = namedtuple('SpreadModes_tuple', ('PAD', 'REPEAT', 'REFLECT')
+                         )(*range(0x1c00, 0x1c03))
+TilingModes = namedtuple('TilingModes_tuple', ('FILL', 'PAD', 'REPEAT',
+                                               'REFLECT')
+                         )(*range(0x1d00, 0x1d04))
+
+
+class PaintParams(Params):
+    '''The set of OpenVG parameters relevant to paint objects.'''
+    (TYPE, COLOR, COLOR_RAMP_SPREAD_MODE, COLOR_RAMP_SPREAD_STOPS,
+     LINEAR_GRADIENT, RADIAL_GRADIENT, PATTERN_TILING_MODE,
+     COLOR_RAMP_PREMULTIPLIED) = range(0x1a00, 0x1a08)
+    details = {TYPE: Details('The type of paint to apply', PaintType,
+                             PaintType.COLOR),
+               COLOR: Details('The RGBA paint colour, if the paint type is '
+                              'solid colour', c_float4, (0.0, 0.0, 0.0, 1.0)),
+               COLOR_RAMP_SPREAD_MODE: Details('What to do after the end of '
+                                               'the first colour ramp, if the '
+                                               'paint type is linear or '
+                                               'radial gradient',
+                                               SpreadModes, SpreadModes.PAD),
+               COLOR_RAMP_SPREAD_STOPS: Details('The flattened sequence of '
+                                                '5-tuples that define the '
+                                                'offset position and RGBA '
+                                                'colour of each colour ramp '
+                                                'stop', c_float_p,
+                                                c_float_p(())),
+               COLOR_RAMP_PREMULTIPLIED: Details('Whether or not the colour '
+                                                 'ramp stops have been '
+                                                 'premultiplied with alpha',
+                                                 bool, True),
+               LINEAR_GRADIENT: Details('The start and end points of the '
+                                        'linear gradient function', c_float4,
+                                        (0.0, 0.0, 1.0, 0.0)),
+               RADIAL_GRADIENT: Details('The centre point, focus point, and '
+                                        'radius of the radial gradient '
+                                        'function', c_float5, ()),
+               PATTERN_TILING_MODE: Details('The method for determining '
+                                            'colours outside the source '
+                                            'image, if the paint type is '
+                                            'pattern', TilingModes,
+                                            TilingModes.FILL)}
+
+
+# Parameters for image objects.
+ImageFormats = StupidlyComplexBitMask() # TODO!!
+
+
+class ImageParams(Params):
+    '''The set of OpenVG parameters relevant to image objects.'''
+    FORMAT, WIDTH, HEIGHT = range(0x1e00, 0x1e03)
+    details = {FORMAT: Details('The pixel format and colour space of this '
+                               'image',ImageFormat, ImageFormat.sRGBA_8888)
+               WIDTH: Details('The width of this image, in pixels', c_int, 0),
+               HEIGHT: Details('The height of this image, in pixels', c_int, 0)
+               }
+
+
+# Parameters for font objects.
+class FontParams(Params):
+    '''The set of OpenVG parameters relevant to font objects.'''
+    NUM_GLYPHS = 0x2f00
+    details = {NUM_GLYPHS: Details('The number of glyphs defined in this font',
+                                   c_int, 0)}
