@@ -42,6 +42,12 @@ def SegmentCommand(segment_type, is_absolute=True):
     set to 1 (if the segment coordinates are relative to the last path
     position) or 0 (if they are absolute).
 
+    Keyword arguments:
+        segment_type -- The type of segment. A value from the
+            PathSegments named tuple.
+        is_absolute -- Whether or not this command is using absolute
+            instead of relative coordinates. Defaults to true.
+
     '''
     return 2 * segment_type + (0 if is_absolute else 1)
 
@@ -50,6 +56,16 @@ class Path:
     '''Represents an OpenVG path, the core drawing primitive.
 
     Instance attributes:
+        path_format -- The command format of the path. A value from the
+            PathFormats named tuple.
+        datatype -- The data type used to store coordinates on this
+            path. A value from the PathDataTypes named tuple.
+        scale, bias -- The scale factor and offset from zero applied to
+            all coordinates on this path. The scale must be greater than
+            zero, while bias is unrestricted.
+        num_segments, num_coords -- The number of path segments that
+            make up this path, and the number of individual coordinates
+            (not coordinate pairs) that describe them.
         capabilities -- The bitmask describing the operations that may
             be performed on this path.
         phandle -- The foreign object handle for this path.
@@ -61,7 +77,22 @@ class Path:
                  bias=PathParams.default('BIAS'),
                  segment_capacity_hint=0, coord_capacity_hint=0,
                  capabilities=PathCapabilities(ALL=1)):
-        self.capabilities = capabilities
+        '''Initialise the OpenVG path.
+
+        Keyword arguments:
+            path_format, datatype, scale, bias -- As the instance
+                attributes.
+            segment_capacity_hint, coord_capacity_hint -- Optional hints
+                for the number of segments and coordinates that this path
+                should be expected to hold.
+            capabilities -- As the instance attribute.
+
+        '''
+        # Store initial settings that can't be queried from OpenVG.
+        self.segment_capacity_hint = segment_capacity_hint
+        self.coord_capacity_hint = coord_capacity_hint
+
+        # Create the OpenVG native object.
         self.phandle = native.vgCreatePath(path_format, datatype, scale, bias,
                                            segment_capacity_hint,
                                            coord_capacity_hint, capabilities)
@@ -71,11 +102,16 @@ class Path:
             raise OpenVGError('path creation unexpectedly failed')
 
     def __del__(self):
+        '''Call the native OpenVG cleanup function.'''
         native.vgDestroyPath(self)
 
-    def clear(self, capabilities=None):
-        native.vgClearPath(self, capabilities if capabilities is not None else
-                           self.capabilities)
+    def __iadd__(self, path):
+        '''Use in-place addition to append another path to this one.'''
+        self.append(path)
+
+    def __len__(self):
+        '''Get the length of this path, being its number of segments.'''
+        return self.num_segments
 
     @property
     def _as_parameter_(self):
@@ -102,24 +138,95 @@ class Path:
 
     @property
     def path_format(self):
+        '''Get the actual path format reported by OpenVG.'''
         return _get_param(PathParams.FORMAT)
 
     @property
     def datatype(self):
+        '''Get the actual coordinate data type reported by OpenVG.'''
         return _get_param(PathParams.DATATYPE)
 
     @property
     def scale(self):
+        '''Get the scale value being used by OpenVG.'''
         return _get_param(PathParams.SCALE)
 
     @property
     def bias(self):
+        '''Get the bias value being used by OpenVG.'''
         return _get_param(PathParams.BIAS)
 
     @property
     def num_segments(self): # TODO: Doesn't seem very Pythonic.
+        '''Get the current number of segments in this path.
+
+        This value is also reported as the length of this object by the
+        len() function.
+
+        '''
         return _get_param(PathParams.NUM_SEGMENTS)
 
     @property
     def num_coords(self): # TODO: Ditto.
+        '''Get the current number of coordinates in this path.'''
         return _get_param(PathParams.NUM_COORDS)
+
+    @property
+    def capabilities(self):
+        '''Get the current capabilities reported by OpenVG.'''
+        return PathCapabilities(native.vgGetPathCapabilities(self))
+
+    def append(self, path):
+        '''Append all path segments from another path to this one.
+
+        This is identical to using in-place addition on this path.
+
+        '''
+        native.vgAppendPath(path, self)
+
+    def clear(self, capabilities=None):
+        '''Clear all data from this path.
+
+        According to the specification, clearing and reusing one path
+        object may be more efficient than creating multiple short-lived
+        paths.
+
+        '''
+        native.vgClearPath(self, capabilities if capabilities is not None else
+                           self.capabilities)
+
+    def remove_capabilities(self, *args, **kwargs):
+        '''Remove the specified capabilities from this path.
+
+        The OpenVG implementation may or may not honour this request,
+        since path capabilities are only used for the sake of efficiency
+        anyway.
+
+        Keyword arguments:
+            capabilities -- A PathCapabilities bit mask specifying the
+                capabilities to be disabled.
+
+        Alternatively, arguments (positional or keyword) can be passed
+        in the same format as for the PathCapabilities constructor.
+
+        '''
+        try:
+            capabilities = kwargs['capabilities']
+        except KeyError:
+            # No such keyword argument.
+            capabilities = PathCapabilities(*args, **kwargs)
+        native.vgRemovePathCapabilities(self, capabilities)
+
+    def transform(self, to_path=None):
+        '''Get the transformation of this path by the current matrix.
+
+        An optional path (which may even be this path) can be supplied,
+        in which case the transformed data is appended to that path. If
+        no path is supplied, the transformed path is returned.
+
+        '''
+        if to_path is None:
+            to_path = Path(self.path_format, self.datatype, self.scale,
+                           self.bias, self.segment_capacity_hint,
+                           self.coord_capacity_hint, self.capabilities)
+        native.vgTransformPath(to_path, self)
