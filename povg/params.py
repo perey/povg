@@ -34,9 +34,9 @@ from .native import c_float_p
 c_float4 = c_float * 4
 c_float5 = c_float * 5
 
-# Named tuple for storing the details of an parameter field. Note that the
-# "default" field may only contain the default for setting a parameter, not
-# the default for an unset value, which may be implementation-defined.
+# Named tuple for storing the details of a parameter field. Note that the
+# "default" field might only contain the default for setting a parameter,
+# not the default for an unset value, which may be implementation-defined.
 Details = namedtuple('Details', ('desc', 'values', 'default'))
 
 # Class for representing bit mask parameter types.
@@ -381,14 +381,46 @@ class PaintParams(Params):
 
 
 # Parameters for image objects.
-ImageFormats = StupidlyComplexBitMask() # TODO!!
+ImageFormats = namedtuple('ImageFormats_tuple', ('sRGBX_8888', 'sRGBA_8888',
+                                                 'sRGBA_8888_PRE',
+                                                 'sRGB_565', 'sRGBA_5551',
+                                                 'sRGBA_4444', 'sL_8',
+                                                 'lRGBX_8888', 'lRGBA_8888',
+                                                 'lRGBA_8888_PRE', 'lL_8',
+                                                 'A_8', 'BW_1', 'A_1', 'A_4',
+
+                                                 'sXRGB_8888', 'sARGB_8888',
+                                                 'sARGB_8888_PRE',
+                                                 'sARGB_5551', 'sARGB_4444',
+                                                 'lXRGB_8888', 'lARGB_8888',
+                                                 'lARGB_8888_PRE',
+
+                                                 'sBGRX_8888', 'sBGRA_8888',
+                                                 'sBGRA_8888_PRE',
+                                                 'sBGR_565', 'sBGRA_5551',
+                                                 'sBGRA_4444', 'lBGRX_8888',
+                                                 'lBGRA_8888',
+                                                 'lBGRA_8888_PRE',
+
+                                                 'sXBGR_8888', 'sABGR_8888',
+                                                 'sABGR_8888_PRE',
+                                                 'sABGR_5551', 'sABGR_4444',
+                                                 'lXBGR_8888', 'lABGR_8888',
+                                                 'lABGR_8888_PRE')
+                          )(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14,
+                            64, 65, 66, 68, 69, 71, 72, 73,
+                            128, 129, 130, 131, 132, 133, 134, 135, 136, 137,
+                            192, 193, 194, 196, 197, 199, 200, 201)
+# TODO: Consider replacing this with a structured bit-format object, if you can
+# create one that isn't so hideously overblown that it looks like it should be
+# out stomping through Tokyo.
 
 
 class ImageParams(Params):
     '''The set of OpenVG parameters relevant to image objects.'''
     FORMAT, WIDTH, HEIGHT = range(0x1e00, 0x1e03)
     details = {FORMAT: Details('The pixel format and colour space of this '
-                               'image',ImageFormat, ImageFormat.sRGBA_8888)
+                               'image',ImageFormats, ImageFormats.sRGBA_8888)
                WIDTH: Details('The width of this image, in pixels', c_int, 0),
                HEIGHT: Details('The height of this image, in pixels', c_int, 0)
                }
