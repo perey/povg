@@ -134,9 +134,7 @@ class BitMask:
         self.bits = [False] * len(self.bit_names)
 
         # Set up access to bits by name.
-        bit_number = -1
-        for posname in self.bit_names:
-            bit_number += 1
+        for bit_number, posname in enumerate(self.bit_names):
             if posname is None:
                 # Unnamed bit.
                 continue
