@@ -51,6 +51,7 @@ __all__ = ['vgFlush', 'vgFinish', 'vgSetf', 'vgSeti', 'vgSetfv', 'vgSetiv',
 import ctypes
 from ctypes import (POINTER, c_byte, c_ubyte, c_short, c_int, c_uint,
                     c_float, c_char_p, c_void_p)
+import sys
 
 # Local imports.
 from . import OpenVGError, error_codes

@@ -183,7 +183,7 @@ def _get_vector(param_id, type_=int, flattened=False, known_size=None):
             size = vgGetVectorSize(param_id)
             array = (c_pointer * size)()
             getv_fn(param_id, size, array)
-            return unflatten(type_(elem) for elem in array, known_size)
+            return unflatten((type_(elem) for elem in array), known_size)
     else:
         # Create a function that either returns the static size (if we know
         # what that is) or fetches the current size when called.
@@ -244,7 +244,7 @@ def _set_vector(param_id, type_=int, flattened=False, known_size=None):
 
     return setter
 
-def _get(param, name, values, type_=int):
+def _get(param, name, values, type_=int, from_nt=None):
     '''Create a read-only property with a scalar value.
 
     Keyword arguments:
@@ -258,8 +258,11 @@ def _get(param, name, values, type_=int):
             is set to something other than float, OpenVG will provide an
             integer which will then be converted to the supplied type.
             If omitted, the default is int.
+        from_nt -- An optional named tuple instance from which values
+            must be drawn.
 
     '''
+    # TODO: Do something useful with from_nt.
     param_id = _params[param]
     get_fn = (vgGetf if type_ is float else vgGeti)
 
@@ -538,7 +541,7 @@ class Context(pegl.context.Context):
                                 'pattern begins', 'floats', type_=float)
     stroke_dash_phase_reset = _getset('STROKE_DASH_PHASE_RESET',
                                       'reset the dash pattern on each subpath',
-                                      type_=bool)
+                                      'booleans', type_=bool)
 
     # Fill and clear colours
     tile_fill_color = _getsetv('TILE_FILL_COLOR', 'fill colour used for the '
