@@ -24,30 +24,10 @@ from collections import namedtuple
 from ctypes import c_float, c_int
 
 # Local library imports.
-from . import flatten, unflatten
-from .native import (vgFlush, vgFinish, vgSeti, vgSetf, vgSetiv, vgSetfv,
-                     vgGetVectorSize, vgGeti, vgGetf, vgGetiv, vgGetfv,
-                     c_int_p, c_float_p)
-
-# Context-independent methods.
-def flush():
-    '''Force operations on the current context to finish.
-
-    Calling this function will ensure that any outstanding operations
-    will finish in finite time, but it will not block while waiting
-    for completion of those operations.
-
-    '''
-    vgFlush()
-
-def finish():
-    '''Force operations on the current context to finish.
-
-    When called, this function will not return until all outstanding
-    operations are complete.
-
-    '''
-    vgFinish()
+from .. import flatten, unflatten
+from ..native import (vgFlush, vgFinish, vgSeti, vgSetf, vgSetiv, vgSetfv,
+                      vgGetVectorSize, vgGeti, vgGetf, vgGetiv, vgGetfv,
+                      c_int_p, c_float_p)
 
 # Context parameter types.
 _params = {
@@ -567,3 +547,24 @@ class Context:
                                       'positive floating-point numbers '
                                       '(minimum 16.0)',
                                       type_=float)
+
+    @staticmethod
+    def flush():
+        '''Force operations on the current context to finish.
+
+        Calling this function will ensure that any outstanding operations
+        will finish in finite time, but it will not block while waiting
+        for completion of those operations.
+
+        '''
+        vgFlush()
+
+    @staticmethod
+    def finish():
+        '''Force operations on the current context to finish.
+
+        When called, this function will not return until all outstanding
+        operations are complete.
+
+        '''
+        vgFinish()
