@@ -1,14 +1,8 @@
 #!/usr/bin/env python3
 
-'''OpenVG context access.
+'''OpenVG context access.'''
 
-This module depends on Pegl, a Python wrapper around the EGL library. If
-you are using Povg with some other means of managing contexts, you
-should not import this module. Other Povg modules will not import this
-module themselves.
-
-'''
-# Copyright © 2013 Tim Pederick.
+# Copyright © 2013-14 Tim Pederick.
 #
 # This file is part of Povg.
 #
@@ -29,21 +23,31 @@ module themselves.
 from collections import namedtuple
 from ctypes import c_float, c_int
 
-# Pegl library imports.
-# TODO: Don't rely on Pegl; or at least, provide access to OpenVG context
-# without relying on any particular way of creating that context. It's a
-# pretty rough fit anyway, extending pegl.context.Context like this; the
-# OpenVG context is essentially a singleton (or rather, a borg).
-import pegl.display
-import pegl.config
-import pegl.context
-import pegl.attribs
-
 # Local library imports.
 from . import flatten, unflatten
 from .native import (vgFlush, vgFinish, vgSeti, vgSetf, vgSetiv, vgSetfv,
                      vgGetVectorSize, vgGeti, vgGetf, vgGetiv, vgGetfv,
                      c_int_p, c_float_p)
+
+# Context-independent methods.
+def flush():
+    '''Force operations on the current context to finish.
+
+    Calling this function will ensure that any outstanding operations
+    will finish in finite time, but it will not block while waiting
+    for completion of those operations.
+
+    '''
+    vgFlush()
+
+def finish():
+    '''Force operations on the current context to finish.
+
+    When called, this function will not return until all outstanding
+    operations are complete.
+
+    '''
+    vgFinish()
 
 # Context parameter types.
 _params = {
@@ -301,7 +305,8 @@ def _getv(param, name, values, type_=int, flattened=False, known_size=None):
 
     '''
     param_id = _params[param]
-    return property(fget=_get_vector(param_id, type_, flattened, known_size),
+    return property(fget=lambda self: _get_vector(param_id, type_, flattened,
+                                                  known_size),
                     doc=('The {} (read-only).\n\n'
                          '    Possible values are {}.\n'.format(name, values)))
 
@@ -361,28 +366,20 @@ def _getsetv(param, name, values, type_=int, flattened=False, known_size=None):
 
     '''
     param_id = _params[param]
-    return property(fget=_get_vector(param_id, type_, flattened, known_size),
-                    fset=_set_vector(param_id, type_, flattened, known_size),
+    return property(fget=lambda self: _get_vector(param_id, type_, flattened,
+                                                  known_size),
+                    fset=lambda self: _set_vector(param_id, type_, flattened,
+                                                  known_size),
                     doc=('The {}.\n\n'
                          '    Legal values are {}.\n'.format(name, values)))
 
 # The OpenVG context itself.
-class Context(pegl.context.Context):
-    '''Represents an EGL context configured for OpenVG.
+class Context:
+    '''Represents the OpenVG context.
 
-    Instance attributes:
-        display, config, ctxhandle, render_buffer -- Inherited from
-            pegl.context.Context.
-        api -- Inherited from pegl.context.Context. Should always be the
-            string 'OpenVG'.
-        api_version -- Inherited from pegl.context.Context, but never
-            relevant.
-
-    Access to OpenVG-specific context parameters is possible through
-    the following attributes. Note that these parameters apply to the
-    current context, not necessarily to the Context instance. You should
-    ensure that this context instance is current before querying or
-    setting any of these parameters.
+    Because of the design of OpenVG, instances of this class will all
+    access the same context state. It is therefore not generally useful
+    to have more than one Context instance in use.
 
     Context attributes:
         matrix_mode
@@ -426,50 +423,6 @@ class Context(pegl.context.Context):
         max_float
 
     '''
-    def __init__(self, display=None, config=None, share_context=None):
-        '''Create the context.
-
-        Keyword arguments:
-            display -- As the instance attribute. If omitted, the
-                current display is used.
-            config -- As the instance attribute. If omitted, the first
-                available OpenVG-supporting configuration will be used.
-            share_context -- An optional OpenVG context with which this
-                one will share state.
-
-        '''
-        if display is None:
-            display = pegl.display.current_display()
-        if config is None:
-            openvg = pegl.attribs.config.ClientAPIs(OPENVG=1)
-            config = pegl.config.get_configs(display,
-                                             {'RENDERABLE_TYPE': openvg})[0]
-        pegl.context.bind_api('OpenVG')
-        super().__init__(display, config, share_context)
-
-        assert self.api == 'OpenVG'
-
-    @staticmethod
-    def flush():
-        '''Force operations on the current context to finish.
-
-        Calling this function will ensure that any outstanding operations
-        will finish in finite time, but it will not block while waiting
-        for completion of those operations.
-
-        '''
-        vgFlush()
-
-    @staticmethod
-    def finish():
-        '''Force operations on the current context to finish.
-
-        When called, this function will not return until all outstanding
-        operations are complete.
-
-        '''
-        vgFinish()
-
     # Mode settings
     matrix_mode = _getset('MATRIX_MODE', 'transform matrix mode',
                           'contained in the MatrixMode named tuple',
