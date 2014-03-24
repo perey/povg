@@ -20,6 +20,7 @@
 # Standard library imports.
 from collections import namedtuple
 from ctypes import c_float
+from itertools import chain
 
 # Local imports.
 from . import native, OpenVGError
@@ -27,7 +28,7 @@ from .params import (PathFormats, PathDatatypes, PathCapabilities, PathParams,
                      param_convert)
 
 # Segment commands.
-PathSegments = namedtuple('SegmentCommands_tuple',
+PathSegments = namedtuple('PathSegments_tuple',
                           ('CLOSE_PATH', 'MOVE_TO', 'LINE_TO', 'HLINE_TO',
                            'VLINE_TO', 'QUAD_TO', 'CUBIC_TO', 'SQUAD_TO',
                            'SCUBIC_TO', 'SCCWARC_TO', 'SCWARC_TO',
@@ -49,6 +50,7 @@ def SegmentCommand(segment_type, is_absolute=True):
             instead of relative coordinates. Defaults to true.
 
     '''
+    # TODO: Accept segment type by name.
     return 2 * segment_type + (0 if is_absolute else 1)
 
 
@@ -176,6 +178,27 @@ class Path:
         '''Get the current capabilities reported by OpenVG.'''
         return PathCapabilities(native.vgGetPathCapabilities(self))
 
+    def _append_data(self, *args):
+        '''Add new segment data to this path.
+
+        This method is called by each of the methods that add particular
+        kinds of segments.
+
+        Positional arguments:
+            One or more 2-tuples. The first value of each is the segment
+            command, as given by SegmentCommand(). The second value is a
+            sequence of data points, the length of which must match the
+            data length required for the segment command.
+
+        '''
+        # TODO: Exploit this method's (and OpenVG's) capacity for adding
+        # multiple segments in one operation.
+        commands, data = [], []
+        for command, points in args:
+            commands.append(command)
+            data.extend(points)
+        native.vgAppendPathData(self, len(segments), commands, data)
+
     def append(self, path):
         '''Append all path segments from another path to this one.
 
@@ -190,6 +213,11 @@ class Path:
         According to the specification, clearing and reusing one path
         object may be more efficient than creating multiple short-lived
         paths.
+
+        Keyword arguments:
+            capabilities -- An optional new set of capabilities to apply
+                to this path. If omitted, the previous capability set
+                (as amended by remove_capabilities()) is reused.
 
         '''
         native.vgClearPath(self, capabilities if capabilities is not None else
@@ -222,11 +250,188 @@ class Path:
 
         An optional path (which may even be this path) can be supplied,
         in which case the transformed data is appended to that path. If
-        no path is supplied, the transformed path is returned.
+        no path is supplied, a new path with the transformed data is
+        returned.
 
         '''
+        dest = to_path or Path(self.path_format, self.datatype, self.scale,
+                               self.bias, self.segment_capacity_hint,
+                               self.coord_capacity_hint, self.capabilities)
+        native.vgTransformPath(dest, self)
         if to_path is None:
-            to_path = Path(self.path_format, self.datatype, self.scale,
-                           self.bias, self.segment_capacity_hint,
-                           self.coord_capacity_hint, self.capabilities)
-        native.vgTransformPath(to_path, self)
+            return dest
+
+# TODO: Track the (sx, sy), (ox, oy) and (px, py) reference points.
+# TODO: Use a named tuple for (x, y) pairs??
+    def close_path(self):
+        '''Append a close-path command to this path's segments.'''
+        self._append_data((SegmentCommand(PathSegments.CLOSE_PATH), ()))
+
+    def move_to(self, pos, is_absolute=True):
+        '''Append a move-to command to this path's segments.
+
+        Keyword arguments:
+            pos -- The (x, y) coordinate pair of the point to move to.
+            is_absolute -- Whether those coordinates are absolute (the
+                default) or relative to the last path position.
+
+        '''
+        self._append_data((SegmentCommand(PathSegments.MOVE_TO,
+                                          is_absolute=is_absolute),
+                           pos))
+
+    def line_to(self, pos, is_absolute=True):
+        '''Append a straight line to this path's segments.
+
+        Keyword arguments:
+            pos -- The (x, y) coordinate pair of the point to which the
+                line is drawn.
+            is_absolute -- Whether those coordinates are absolute (the
+                default) or relative to the last path position.
+
+        '''
+        self._append_data((SegmentCommand(PathSegments.LINE_TO,
+                                          is_absolute=is_absolute),
+                           pos))
+
+    def hline_to(self, xpos, is_absolute=True):
+        '''Append a horizontal line to this path's segments.
+
+        Keyword arguments:
+            xpos -- The x-coordinate of the point to which the line is
+                drawn.
+            is_absolute -- Whether that coordinate is absolute (the
+                default) or relative to the last path position.
+
+        '''
+        self._append_data((SegmentCommand(PathSegments.HLINE_TO,
+                                          is_absolute=is_absolute),
+                           (xpos,)))
+
+    def vline_to(self, ypos, is_absolute=True):
+        '''Append a vertical line to this path's segments.
+
+        Keyword arguments:
+            ypos -- The y-coordinate of the point to which the line is
+                drawn.
+            is_absolute -- Whether that coordinate is absolute (the
+                default) or relative to the last path position.
+
+        '''
+        self._append_data((SegmentCommand(PathSegments.VLINE_TO,
+                                          is_absolute=is_absolute),
+                           (ypos,)))
+
+    def quad_to(self, ctrl, pos, is_absolute=True):
+        '''Append a quadratic Bézier curve to this path's segments.
+
+        Keyword arguments:
+            ctrl -- The (x, y) coordinate pair of the control point for
+                the Bézier curve.
+            pos -- The (x, y) coordinate pair of the point to which the
+                curve is drawn.
+            is_absolute -- Whether those coordinates are absolute (the
+                default) or relative to the last path position.
+
+        '''
+        self._append_data((SegmentCommand(PathSegments.QUAD_TO,
+                                          is_absolute=is_absolute),
+                           chain(ctrl, pos)))
+
+    def cubic_to(self, ctrl0, ctrl1, pos, is_absolute=True):
+        '''Append a cubic Bézier curve to this path's segments.
+
+        Keyword arguments:
+            ctrl0, ctrl1 -- The (x, y) coordinate pairs of the control
+                points for the Bézier curve.
+            pos -- The (x, y) coordinate pair of the point to which the
+                curve is drawn.
+            is_absolute -- Whether those coordinates are absolute (the
+                default) or relative to the last path position.
+
+        '''
+        self._append_data((SegmentCommand(PathSegments.CUBIC_TO,
+                                          is_absolute=is_absolute),
+                           chain(ctrl0, ctrl1, pos)))
+
+    def smooth_quad_to(self, pos, is_absolute=True):
+        '''Append a quadratic Bézier curve to this path's segments.
+
+        The control point for this curve is chosen such that the curve
+        proceeds smoothly from the end of the previous segment.
+
+        Keyword arguments:
+            pos -- The (x, y) coordinate pair of the point to which the
+                curve is drawn.
+            is_absolute -- Whether those coordinates are absolute (the
+                default) or relative to the last path position.
+
+        '''
+        self._append_data((SegmentCommand(PathSegments.SQUAD_TO,
+                                          is_absolute=is_absolute),
+                           pos))
+
+    def smooth_cubic_to(self, ctrl1, pos, is_absolute=True):
+        '''Append a cubic Bézier curve to this path's segments.
+
+        The first control point for this curve is chosen such that the
+        curve proceeds smoothly from the end of the previous segment.
+
+        Keyword arguments:
+            pos -- The (x, y) coordinate pair of the point to which the
+                curve is drawn.
+            is_absolute -- Whether those coordinates are absolute (the
+                default) or relative to the last path position.
+
+        '''
+        self._append_data((SegmentCommand(PathSegments.SCUBIC_TO,
+                                          is_absolute=is_absolute),
+                           chain(ctrl1, pos)))
+
+    def arc_to(self, radii, rotation, pos, is_short=True, is_clockwise=False,
+               is_absolute=True):
+        '''Append an elliptical arc to this path's segments.
+
+        The first control point for this curve is chosen such that the
+        curve proceeds smoothly from the end of the previous segment.
+
+        Keyword arguments:
+            radii -- A single radius value (for a circular arc), or a
+                pair of radius values, horizontal and then vertical.
+            rotation -- The rotation angle of the arc, in degrees, given
+                anticlockwise from the horizontal and vertical alignment
+                of the above radii.
+            pos -- The (x, y) coordinate pair of the point to which the
+                arc is drawn.
+            is_short -- Whether the arc is one of the two shorter
+                arcs possible to the given point. Defaults to True.
+            is_clockwise -- Whether the arc is one of the two clockwise
+                arcs possible to the given point. Defaults to False.
+            is_absolute -- Whether the coordinates in pos are absolute
+                (the default) or relative to the last path position.
+
+        '''
+        # TODO: Conform to standard library (math) practice by using radians??
+
+        # Identify the appropriate arc command, out of the four candidates.
+        command = {(False, False): PathSegments.LCCWARC_TO,
+                   (False, True): PathSegments.LCWARC_TO,
+                   (True, False): PathSegments.SCCWARC_TO,
+                   (True, True): PathSegments.SCWARC_TO
+                   }[(bool(is_short), bool(is_clockwise))]
+        try:
+            l = len(radii)
+        except TypeError:
+            # Doesn't have a len(); hopefully it's a single radius.
+            radii = (float(radii),) * 2
+        else:
+            if l == 1:
+                # One single radius, but in a sequence.
+                radii = (radii[0],) * 2
+            elif l != 2:
+                # Huh?
+                raise TypeError('expected 1 or 2 radii, got {}'.format(l))
+            # Else two radii, just as expected.
+
+        self._append_data((SegmentCommand(command, is_absolute=is_absolute),
+                           chain(radii, (rot,), pos)))
