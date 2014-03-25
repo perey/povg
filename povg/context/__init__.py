@@ -19,6 +19,10 @@
 # You should have received a copy of the GNU General Public License
 # along with Povg. If not, see <http://www.gnu.org/licenses/>.
 
+__all__ = ['MatrixMode', 'FillRule', 'ImageQuality', 'RenderingQuality',
+           'BlendMode', 'ImageMode', 'CapStyle', 'JoinStyle', 'PixelLayout',
+           'Context']
+
 # Standard library imports.
 from collections import namedtuple
 from ctypes import c_float, c_int
@@ -118,9 +122,6 @@ CapStyle = namedtuple('CapStyle_tuple',
 JoinStyle = namedtuple('JoinStyle_tuple',
                        ('MITER', 'ROUND', 'BEVEL')
                        )(0x1800, 0x1801, 0x1802)
-FillRule = namedtuple('FillRule_tuple',
-                      ('EVEN_ODD', 'NON_ZERO')
-                      )(0x1900, 0x1901)
 PixelLayout = namedtuple('PixelLayout_tuple',
                          ('UNKNOWN', 'RGB_VERTICAL', 'BGR_VERTICAL',
                           'RGB_HORIZONTAL', 'BGR_HORIZONTAL')
