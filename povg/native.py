@@ -77,6 +77,18 @@ c_float2 = c_float * 2
                                               c_float))
 INVALID_HANDLE = c_handle(0)
 
+def make_float_p(fval=0.0):
+    '''Create and initialise a pointer to a float.
+
+    Keyword arguments:
+        fval -- The initial value of the referenced float. The default
+            is 0.0.
+
+    '''
+    p = c_float_p()
+    p.contents = c_float(fval)
+    return p
+
 # Trap OpenVG errors. We set the argument and return types for
 # "VGErrorCode vgGetError(void)" here, since we use it for error_check.
 vg.vgGetError.argtypes = ()

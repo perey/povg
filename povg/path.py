@@ -55,6 +55,13 @@ def SegmentCommand(segment_type, is_absolute=True):
     return 2 * segment_type + (0 if is_absolute else 1)
 
 
+# Paint modes.
+# TODO: Bitmask?
+PaintModes = namedtuple('PaintModes_tuple',
+                        ('FILL', 'STROKE')
+                        )(1, 2)
+
+# The centrepiece of the module, the big massive Path class itself.
 class Path:
     '''Represents an OpenVG path, the core drawing primitive.
 
@@ -284,6 +291,11 @@ class Path:
     @contextmanager
     def queue_segments(self):
         '''Queue up segment data, to be appended in a single operation.'''
+        # TODO: Should be fairly easy to make this re-entrant: just save queue
+        # state, do stuff, then restore state. But it means not using the
+        # @contextmanager decorator any more...
+        # http://docs.python.org/3/library/contextlib.html#reentrant-cms
+
         # Flag all data for enqueuing instead of immediate dispatch.
         self._queuing = True
 
@@ -312,7 +324,7 @@ class Path:
         '''
         self._add_segment(SegmentCommand(PathSegments.MOVE_TO,
                                          is_absolute=is_absolute),
-                          pos))
+                          pos)
 
     def line_to(self, pos, is_absolute=True):
         '''Append a straight line to this path's segments.
@@ -326,7 +338,7 @@ class Path:
         '''
         self._add_segment(SegmentCommand(PathSegments.LINE_TO,
                                          is_absolute=is_absolute),
-                          pos))
+                          pos)
 
     def hline_to(self, xpos, is_absolute=True):
         '''Append a horizontal line to this path's segments.
@@ -386,7 +398,7 @@ class Path:
         '''
         self._add_segment(SegmentCommand(PathSegments.CUBIC_TO,
                                          is_absolute=is_absolute),
-                          chain(ctrl0, ctrl1, pos)))
+                          chain(ctrl0, ctrl1, pos))
 
     def smooth_quad_to(self, pos, is_absolute=True):
         '''Append a quadratic Bézier curve to this path's segments.
@@ -446,6 +458,7 @@ class Path:
 
         '''
         # TODO: Conform to standard library (math) practice by using radians??
+        # If I decide not to, povg.matrix will need to change to match.
 
         # Identify the appropriate arc command, out of the four candidates.
         command = {(False, False): PathSegments.LCCWARC_TO,
@@ -469,3 +482,95 @@ class Path:
 
         self._add_segment(SegmentCommand(command, is_absolute=is_absolute),
                           chain(radii, (rot,), pos))
+
+    def modify_path(self, start, length, data):
+        '''Modify existing path data for one or more segments.'''
+        # TODO: This can surely be made more Pythonic and accessible?
+        native.vgModifyPath(self, start, length, data)
+
+    def interpolate(self, end, amount, to_path=None):
+        '''Get an interpolation between this path and another.
+
+        An optional path (which may even be this path) can be supplied,
+        in which case the interpolated data is appended to that path. If
+        no path is supplied, a new path with the interpolated data is
+        returned.
+
+        '''
+        dest = to_path or Path(self.path_format, self.datatype, self.scale,
+                               self.bias, self.segment_capacity_hint,
+                               self.coord_capacity_hint, self.capabilities)
+        native.vgInterpolatePath(dest, self, end, amount)
+        if to_path is None:
+            return dest
+
+    def path_length(self, start=0, length=None):
+        '''Get the (approximate) geometric length of this path.'''
+        # Prep the parameters.
+        if length is None:
+            length = len(self)
+
+        # Call the native function.
+        pathlength = native.vgPathLength(self, start, length)
+
+        # Check for errors that didn't cause an exception.
+        if pathlength == -1:
+            raise OpenVGError('path length operation unexpectedly failed')
+        else:
+            return pathlength
+
+    def point_at(self, distance, start=0, length=None):
+        '''Get the point some distance along this path.
+
+        Note that if the path lacks the capabilities for querying either
+        the coordinates or the tangent vector, no error will result. The
+        returned values will simply be incorrect (all values should be
+        0.0 in both tuples).
+
+        Returns:
+            A 2-tuple containing the coordinates of the point, as an
+            (x, y) 2-tuple, and the tangent vector at the point, as
+            an (i, j) 2-tuple.
+
+        '''
+        # TODO: Optional parameter to disable (or enable?) tangent or even
+        # coordinate querying (by passing None instead of pointers).
+
+        # Prep the parameters.
+        if length is None:
+            length = len(self)
+
+        # Get pointers to hold the results.
+        x, y, tx, ty = (native.make_float_p(), native.make_float_p(),
+                        native.make_float_p(), native.make_float_p())
+
+        # Call the native function.
+        native.vgPointAlongPath(self, start, length, distance, x, y, tx, ty)
+
+        # Dereference the pointers.
+        return ((x.contents.value, y.contents.value),
+                (tx.contents.value, ty.contents.value))
+
+    def bounds(self, apply_transform=False):
+        '''Get the bounding box of this path.'''
+        # Get pointers to hold the results.
+        x, y, width, height = (native.make_float_p(), native.make_float_p(),
+                               native.make_float_p(), native.make_float_p())
+
+        # Call the native function.
+        (native.vgPathTransformedBounds if apply_transform else
+         native.vgPathBounds)(self, x, y, width, height)
+
+        # Dereference the pointers.
+        return (x.contents.value, y.contents.value,
+                width.contents.value, height.contents.value)
+
+    def draw(self, fill=True, stroke=True):
+        '''Draw the path.'''
+        if not fill and not stroke:
+            return # TODO: Error?
+
+        mode = ((PaintModes.FILL if fill else 0) |
+                (PaintModes.STROKE if stroke else 0))
+        assert mode != 0
+        native.vgDrawPath(self, mode)
