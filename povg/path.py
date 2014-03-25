@@ -19,6 +19,7 @@
 
 # Standard library imports.
 from collections import namedtuple
+from contextlib import contextmanager
 from ctypes import c_float
 from itertools import chain
 
@@ -90,6 +91,10 @@ class Path:
             capabilities -- As the instance attribute.
 
         '''
+        # Set up state for the segment-queuing context manager.
+        self._queuing = False
+        self._queued_commands, self._queued_data = [], []
+
         # Store initial settings that can't be queried from OpenVG.
         self.segment_capacity_hint = segment_capacity_hint
         self.coord_capacity_hint = coord_capacity_hint
@@ -178,26 +183,41 @@ class Path:
         '''Get the current capabilities reported by OpenVG.'''
         return PathCapabilities(native.vgGetPathCapabilities(self))
 
-    def _append_data(self, *args):
+    def _append_data(self, commands, data):
         '''Add new segment data to this path.
 
-        This method is called by each of the methods that add particular
-        kinds of segments.
+        This method should only be called by _add_segment() and by the
+        queue_segments() context manager.
 
-        Positional arguments:
-            One or more 2-tuples. The first value of each is the segment
-            command, as given by SegmentCommand(). The second value is a
-            sequence of data points, the length of which must match the
-            data length required for the segment command.
+        Keyword arguments:
+            commands -- A sequence containing the segment commands to
+                append to the path.
+            data -- A sequence containing the segment data for all
+                commands.
 
         '''
-        # TODO: Exploit this method's (and OpenVG's) capacity for adding
-        # multiple segments in one operation.
-        commands, data = [], []
-        for command, points in args:
-            commands.append(command)
-            data.extend(points)
-        native.vgAppendPathData(self, len(segments), commands, data)
+        native.vgAppendPathData(self, len(commands), commands, data)
+
+    def _add_segment(self, command, data):
+        '''Prepare to add a new segment to this path.
+
+        This method is called by each of the methods that add particular
+        kinds of segments. If the path is currently in queuing mode
+        (using the queue_segments() context manager), the segments are
+        retained until the queuing mode is finished. Otherwise, the
+        segments are appended immediately.
+
+        Keyword arguments:
+            command -- The command for the segment to add, as obtained
+                from SegmentCommand.
+            data -- A sequence containing the data for this segment.
+
+        '''
+        if self._queuing:
+            self._queued_commands.append(command)
+            self._queued_data.extend(data)
+        else:
+            self._append_data((command,), data)
 
     def append(self, path):
         '''Append all path segments from another path to this one.
@@ -261,11 +281,25 @@ class Path:
         if to_path is None:
             return dest
 
+    @contextmanager
+    def queue_segments(self):
+        '''Queue up segment data, to be appended in a single operation.'''
+        # Flag all data for enqueuing instead of immediate dispatch.
+        self._queuing = True
+
+        # Hand control to the with statement block.
+        yield
+
+        # Dispatch the queued data and empty the queues.
+        self._append_data(self._queued_commands, self._queued_data)
+        self._queued_commands, self._queued_data = [], []
+        self._queuing = False
+
 # TODO: Track the (sx, sy), (ox, oy) and (px, py) reference points.
 # TODO: Use a named tuple for (x, y) pairs??
     def close_path(self):
         '''Append a close-path command to this path's segments.'''
-        self._append_data((SegmentCommand(PathSegments.CLOSE_PATH), ()))
+        self._add_segment(SegmentCommand(PathSegments.CLOSE_PATH), ())
 
     def move_to(self, pos, is_absolute=True):
         '''Append a move-to command to this path's segments.
@@ -276,9 +310,9 @@ class Path:
                 default) or relative to the last path position.
 
         '''
-        self._append_data((SegmentCommand(PathSegments.MOVE_TO,
-                                          is_absolute=is_absolute),
-                           pos))
+        self._add_segment(SegmentCommand(PathSegments.MOVE_TO,
+                                         is_absolute=is_absolute),
+                          pos))
 
     def line_to(self, pos, is_absolute=True):
         '''Append a straight line to this path's segments.
@@ -290,9 +324,9 @@ class Path:
                 default) or relative to the last path position.
 
         '''
-        self._append_data((SegmentCommand(PathSegments.LINE_TO,
-                                          is_absolute=is_absolute),
-                           pos))
+        self._add_segment(SegmentCommand(PathSegments.LINE_TO,
+                                         is_absolute=is_absolute),
+                          pos))
 
     def hline_to(self, xpos, is_absolute=True):
         '''Append a horizontal line to this path's segments.
@@ -304,9 +338,9 @@ class Path:
                 default) or relative to the last path position.
 
         '''
-        self._append_data((SegmentCommand(PathSegments.HLINE_TO,
-                                          is_absolute=is_absolute),
-                           (xpos,)))
+        self._add_segment(SegmentCommand(PathSegments.HLINE_TO,
+                                         is_absolute=is_absolute),
+                          (xpos,))
 
     def vline_to(self, ypos, is_absolute=True):
         '''Append a vertical line to this path's segments.
@@ -318,9 +352,9 @@ class Path:
                 default) or relative to the last path position.
 
         '''
-        self._append_data((SegmentCommand(PathSegments.VLINE_TO,
-                                          is_absolute=is_absolute),
-                           (ypos,)))
+        self._add_segment(SegmentCommand(PathSegments.VLINE_TO,
+                                         is_absolute=is_absolute),
+                          (ypos,))
 
     def quad_to(self, ctrl, pos, is_absolute=True):
         '''Append a quadratic Bézier curve to this path's segments.
@@ -334,9 +368,9 @@ class Path:
                 default) or relative to the last path position.
 
         '''
-        self._append_data((SegmentCommand(PathSegments.QUAD_TO,
-                                          is_absolute=is_absolute),
-                           chain(ctrl, pos)))
+        self._add_segment(SegmentCommand(PathSegments.QUAD_TO,
+                                         is_absolute=is_absolute),
+                          chain(ctrl, pos))
 
     def cubic_to(self, ctrl0, ctrl1, pos, is_absolute=True):
         '''Append a cubic Bézier curve to this path's segments.
@@ -350,9 +384,9 @@ class Path:
                 default) or relative to the last path position.
 
         '''
-        self._append_data((SegmentCommand(PathSegments.CUBIC_TO,
-                                          is_absolute=is_absolute),
-                           chain(ctrl0, ctrl1, pos)))
+        self._add_segment(SegmentCommand(PathSegments.CUBIC_TO,
+                                         is_absolute=is_absolute),
+                          chain(ctrl0, ctrl1, pos)))
 
     def smooth_quad_to(self, pos, is_absolute=True):
         '''Append a quadratic Bézier curve to this path's segments.
@@ -367,9 +401,9 @@ class Path:
                 default) or relative to the last path position.
 
         '''
-        self._append_data((SegmentCommand(PathSegments.SQUAD_TO,
-                                          is_absolute=is_absolute),
-                           pos))
+        self._add_segment(SegmentCommand(PathSegments.SQUAD_TO,
+                                         is_absolute=is_absolute),
+                          pos)
 
     def smooth_cubic_to(self, ctrl1, pos, is_absolute=True):
         '''Append a cubic Bézier curve to this path's segments.
@@ -384,9 +418,9 @@ class Path:
                 default) or relative to the last path position.
 
         '''
-        self._append_data((SegmentCommand(PathSegments.SCUBIC_TO,
-                                          is_absolute=is_absolute),
-                           chain(ctrl1, pos)))
+        self._add_segment(SegmentCommand(PathSegments.SCUBIC_TO,
+                                         is_absolute=is_absolute),
+                          chain(ctrl1, pos))
 
     def arc_to(self, radii, rotation, pos, is_short=True, is_clockwise=False,
                is_absolute=True):
@@ -420,18 +454,18 @@ class Path:
                    (True, True): PathSegments.SCWARC_TO
                    }[(bool(is_short), bool(is_clockwise))]
         try:
-            l = len(radii)
+            lrad = len(radii)
         except TypeError:
             # Doesn't have a len(); hopefully it's a single radius.
             radii = (float(radii),) * 2
         else:
-            if l == 1:
+            if lrad == 1:
                 # One single radius, but in a sequence.
                 radii = (radii[0],) * 2
-            elif l != 2:
+            elif lrad != 2:
                 # Huh?
-                raise TypeError('expected 1 or 2 radii, got {}'.format(l))
+                raise TypeError('expected 1 or 2 radii, got {}'.format(lrad))
             # Else two radii, just as expected.
 
-        self._append_data((SegmentCommand(command, is_absolute=is_absolute),
-                           chain(radii, (rot,), pos)))
+        self._add_segment(SegmentCommand(command, is_absolute=is_absolute),
+                          chain(radii, (rot,), pos))
