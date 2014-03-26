@@ -2,7 +2,7 @@
 
 '''OpenVG path drawing and editing.'''
 
-# Copyright © 2013 Tim Pederick.
+# Copyright © 2013-14 Tim Pederick.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -569,8 +569,22 @@ class Path:
         '''Draw the path.'''
         if not fill and not stroke:
             return # TODO: Error?
-
+        # Get the OR'd value of the requested paint modes.
         mode = ((PaintModes.FILL if fill else 0) |
                 (PaintModes.STROKE if stroke else 0))
+        # Sanity check.
         assert mode != 0
+        # Draw it!
         native.vgDrawPath(self, mode)
+
+    def render_to_mask(self, mask_op, fill=True, stroke=True):
+        '''Render this path to the current mask layer.'''
+        if not fill and not stroke:
+            return # TODO: Error?
+        # Get the OR'd value of the requested paint modes.
+        mode = ((PaintModes.FILL if fill else 0) |
+                (PaintModes.STROKE if stroke else 0))
+        # Sanity check.
+        assert mode != 0
+        # Do it!
+        native.vgRenderToMask(self, mode, mask_op)
