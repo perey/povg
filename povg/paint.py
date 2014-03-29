@@ -20,8 +20,24 @@
 # Local imports.
 from . import native
 from .params import PaintParams, param_convert
-from .path import PaintModes
-# TODO: Move PaintModes to somewhere more appropriate. Like here?
+
+# Paint modes.
+# TODO: Bitmask?
+PaintModes = namedtuple('PaintModes_tuple',
+                        ('FILL', 'STROKE')
+                        )(1, 2)
+def kwargs_to_modes(neither_as_both=False, **kwargs):
+    '''Get fill and/or stroke paint modes from keyword arguments.'''
+    fill, stroke = kwargs.get('fill'), kwargs.get('stroke')
+
+    if not fill and not stroke:
+        if neither_as_both:
+            return PaintModes.FILL | PaintModes.STROKE
+        else:
+            raise TypeError('neither fill nor stroke was set')
+    else:
+        return ((PaintModes.FILL if fill else 0) |
+                (PaintModes.STROKE if stroke else 0))
 
 def current_paint(**kwargs):
     '''Get the native handle of the current paint object.
@@ -35,21 +51,9 @@ def current_paint(**kwargs):
         False
 
     '''
-    # TODO: The common code in practically every function dealing with paint
-    # modes is getting a little tedious.
-    fill, stroke = kwargs.get('fill'), kwargs.get('stroke')
-    # Specifying neither paint mode is equivalent to specifying both.
-    if not (fill or stroke):
-        fill = stroke = True
+    # Get the paint mode to be checked.
+    mode = kwargs_to_modes(neither_as_both=True, **kwargs)
 
-    # Get the OR'd value of the requested paint modes.
-    mode = ((PaintModes.FILL if fill else 0) |
-            (PaintModes.STROKE if stroke else 0))
-
-    # Sanity check.
-    assert mode != 0
-
-    # Do it!
     current = native.vgGetPaint(mode)
 
     # Use None in the case where no paint is set. (INVALID_HANDLE is also
@@ -112,17 +116,8 @@ class Paint:
         current for both fill and stroke in a single call.
 
         '''
-        fill, stroke = kwargs.get('fill'), kwargs.get('stroke')
-        # Specifying neither paint mode is equivalent to specifying both.
-        if not (fill or stroke):
-            fill = stroke = True
-
-        # Get the OR'd value of the requested paint modes.
-        mode = ((PaintModes.FILL if fill else 0) |
-                (PaintModes.STROKE if stroke else 0))
-
-        # Sanity check.
-        assert mode != 0
+        # Get the paint mode to set this on.
+        mode = kwargs_to_modes(neither_as_both=True, **kwargs)
 
         # Do it!
         native.vgSetPaint(self, mode)

@@ -27,6 +27,7 @@ from itertools import chain
 from . import native, OpenVGError
 from .params import (PathFormats, PathDatatypes, PathCapabilities, PathParams,
                      param_convert)
+from .paint import PaintModes, kwargs_to_modes
 
 # Segment commands.
 PathSegments = namedtuple('PathSegments_tuple',
@@ -53,13 +54,6 @@ def SegmentCommand(segment_type, is_absolute=True):
     '''
     # TODO: Accept segment type by name.
     return 2 * segment_type + (0 if is_absolute else 1)
-
-
-# Paint modes.
-# TODO: Bitmask?
-PaintModes = namedtuple('PaintModes_tuple',
-                        ('FILL', 'STROKE')
-                        )(1, 2)
 
 # The centrepiece of the module, the big massive Path class itself.
 class Path:
@@ -567,24 +561,18 @@ class Path:
 
     def draw(self, fill=True, stroke=True):
         '''Draw the path.'''
-        if not fill and not stroke:
+        # Do we fill the path, stroke it, or both?
+        mode = kwargs_to_modes(**kwargs)
+        if mode == 0:
             return # TODO: Error?
-        # Get the OR'd value of the requested paint modes.
-        mode = ((PaintModes.FILL if fill else 0) |
-                (PaintModes.STROKE if stroke else 0))
-        # Sanity check.
-        assert mode != 0
         # Draw it!
         native.vgDrawPath(self, mode)
 
     def render_to_mask(self, mask_op, fill=True, stroke=True):
         '''Render this path to the current mask layer.'''
-        if not fill and not stroke:
+        # Do we fill the path, stroke it, or both?
+        mode = kwargs_to_modes(**kwargs)
+        if mode == 0:
             return # TODO: Error?
-        # Get the OR'd value of the requested paint modes.
-        mode = ((PaintModes.FILL if fill else 0) |
-                (PaintModes.STROKE if stroke else 0))
-        # Sanity check.
-        assert mode != 0
         # Do it!
         native.vgRenderToMask(self, mode, mask_op)
