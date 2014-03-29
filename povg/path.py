@@ -26,7 +26,7 @@ from itertools import chain
 # Local imports.
 from . import native, OpenVGError
 from .params import (PathFormats, PathDatatypes, PathCapabilities, PathParams,
-                     param_convert)
+                     param_convert, native_getter)
 from .paint import PaintModes, kwargs_to_modes
 
 # Segment commands.
@@ -139,9 +139,7 @@ class Path:
         '''
         # If param is not a known parameter type, PathParams.details[param]
         # will raise a KeyError, which we allow to propagate upwards.
-        get_fn = (native.vgGetParameterf
-                  if PathParams.details[param].values is c_float else
-                  native.vgGetParameteri)
+        get_fn = native_getter(PathParams.details[param].values)
         return param_convert(param, get_fn(self, param), PathParams)
 
     @property

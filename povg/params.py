@@ -2,7 +2,7 @@
 
 '''OpenVG parameter types.'''
 
-# Copyright © 2013 Tim Pederick.
+# Copyright © 2013-14 Tim Pederick.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -22,7 +22,9 @@ from collections import namedtuple
 from ctypes import c_float, c_int
 
 # Local imports.
-from .native import c_float_p
+from .native import (c_float_p, vgGetParameterf, vgGetParameterfv,
+                     vgGetParameteri, vgGetParameteriv, vgSetParameterf,
+                     vgSetParameterfv, vgSetParameteri, vgSetParameteriv)
 
 # TODO: Unless the objects that are (almost) identical to their pegl.attribs
 # counterparts are split out into a separate module that will serve both
@@ -38,6 +40,59 @@ c_float5 = c_float * 5
 # "default" field might only contain the default for setting a parameter,
 # not the default for an unset value, which may be implementation-defined.
 Details = namedtuple('Details', ('desc', 'values', 'default'))
+
+# Convenience functions for identifying the native function call to get or set
+# a parameter.
+# TODO: Save special-casing by using the vector functions for everything? It's
+# completely allowable, as long as scalar types are passed with a count of 1.
+# It's worth noting that most of the savings will be seen in other modules, not
+# here--don't assume this was a bad idea because you think it won't change much
+# in these two functions!
+def native_getter(details):
+    '''Identify the native function for getting a parameter.
+
+    Keyword arguments:
+        details -- An instance of the Details named tuple, describing
+            the parameter to be fetched.
+
+    '''
+    if details.values is c_float:
+        return vgGetParameterf
+    else:
+        # Is it a vector type?
+        try:
+            array_type = details.values._type_
+        except AttributeError:
+            # No, it's not.
+            pass
+        else:
+            return (vgGetParameterfv if array_type is c_float else
+                    vgGetParatemeriv)
+    # Everything else is an integer (or handled as one, like booleans).
+    return vgGetParameteri
+
+def native_setter(details):
+    '''Identify the native function for setting a parameter.
+
+    Keyword arguments:
+        details -- An instance of the Details named tuple, describing
+            the parameter to be set.
+
+    '''
+    if details.values is c_float:
+        return vgSetParameterf
+    else:
+        # Is it a vector type?
+        try:
+            array_type = details.values._type_
+        except AttributeError:
+            # No, it's not.
+            pass
+        else:
+            return (vgSetParameterfv if array_type is c_float else
+                    vgSetParatemeriv)
+    # Everything else is an integer (or handled as one, like booleans).
+    return vgSetParameteri
 
 # Class for representing bit mask parameter types.
 class BitMask:
@@ -283,19 +338,22 @@ def param_convert(param, value, params):
         params -- The Params subclass to which this parameter belongs.
 
     '''
-    # TODO: Handle vector types.
     details = params.details[param]
+    # Booleans are easily converted.
     if details.values is bool:
         return bool(value)
     else:
+        # Determine whether we're dealing with a bitmask or not.
         try:
             if issubclass(details.values, BitMask):
+                # We are! Pass it to the BitMask subclass's constructor.
                 return details.values(value)
         except TypeError:
-            # details.values is not a class, let alone a subclass of BitMask.
+            # TypeError is raised by issubclass() if details.values is not a
+            # class, let alone a subclass of BitMask.
             pass
 
-    # Finally...
+    # All other types, including all vector types, are returned as-is.
     return value
 
 # Parameters for path objects.
