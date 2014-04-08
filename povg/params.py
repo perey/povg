@@ -47,17 +47,27 @@ Details = namedtuple('Details', ('desc', 'values', 'default'))
 # completely allowable, as long as scalar types are passed with a count of 1.
 # It's worth noting that most of the savings will be seen in other modules, not
 # here--don't assume this was a bad idea because you think it won't change much
-# in these two functions!
-def native_getter(details):
-    '''Identify the native function for getting a parameter.
+# in this function!
+def native_fn(details, getter):
+    '''Identify the native function for getting or setting a parameter.
 
     Keyword arguments:
         details -- An instance of the Details named tuple, describing
-            the parameter to be fetched.
+            the parameter to be fetched or set.
+        getter -- Whether to return a getter function (if True) or a
+            setter function (if False).
 
     '''
+    functions = ({'f': vgGetParameterf,
+                  'i': vgGetParameteri,
+                  'fv': vgGetParameterfv,
+                  'iv': vgGetParameteriv} if getter else
+                 {'f': vgSetParameterf,
+                  'i': vgSetParameteri,
+                  'fv': vgSetParameterfv,
+                  'iv': vgSetParameteriv})
     if details.values is c_float:
-        return vgGetParameterf
+        return functions['f']
     else:
         # Is it a vector type?
         try:
@@ -66,33 +76,12 @@ def native_getter(details):
             # No, it's not.
             pass
         else:
-            return (vgGetParameterfv if array_type is c_float else
-                    vgGetParatemeriv)
+            return (functions['fv'] if array_type is c_float else
+                    functions['iv'])
     # Everything else is an integer (or handled as one, like booleans).
-    return vgGetParameteri
-
-def native_setter(details):
-    '''Identify the native function for setting a parameter.
-
-    Keyword arguments:
-        details -- An instance of the Details named tuple, describing
-            the parameter to be set.
-
-    '''
-    if details.values is c_float:
-        return vgSetParameterf
-    else:
-        # Is it a vector type?
-        try:
-            array_type = details.values._type_
-        except AttributeError:
-            # No, it's not.
-            pass
-        else:
-            return (vgSetParameterfv if array_type is c_float else
-                    vgSetParatemeriv)
-    # Everything else is an integer (or handled as one, like booleans).
-    return vgSetParameteri
+    return functions['i']
+native_getter = lambda details: native_fn(details, getter=True)
+native_setter = lambda details: native_fn(details, getter=False)
 
 # Class for representing bit mask parameter types.
 class BitMask:
