@@ -25,6 +25,7 @@ case in Pegl.
 # You should have received a copy of the GNU General Public License
 # along with Povg. If not, see <http://www.gnu.org/licenses/>.
 
+from povg.clip import clear
 from povg.context.egl import EGLContext, WindowSurface
 from povg.paint import Paint, RGBAColor
 from povg.path import Path
@@ -32,6 +33,8 @@ from povg.path import Path
 from Xlib import X, display as Xdisplay
 
 ctx = EGLContext()
+ctx.clear_color = ((0.0, 0.0, 0.0, 1.0))
+
 black = Paint()
 black.color = RGBAColor(0, 0, 0, 255)
 white = Paint()
@@ -68,6 +71,7 @@ class TestApp:
         global black, white
 
         while True:
+            clear((0, 0), 640, 480)
             black.set_stroke()
             white.set_fill()
             self.path.draw()

@@ -156,8 +156,8 @@ def _get_vector(param_id, type_=int, flattened=False, known_size=None):
 
     '''
     # Get the native function and pointer type needed.
-    getv_fn, c_pointer = ((vgGetfv, c_float_p) if type_ is float else
-                          (vgGetiv, c_int_p))
+    getv_fn, c_itemtype = ((vgGetfv, c_float) if type_ is float else
+                           (vgGetiv, c_int))
 
     # Construct the getter function, with the above details baked in.
     if flattened:
@@ -166,7 +166,7 @@ def _get_vector(param_id, type_=int, flattened=False, known_size=None):
 
         def getter(self):
             size = vgGetVectorSize(param_id)
-            array = (c_pointer * size)()
+            array = (c_itemtype * size)()
             getv_fn(param_id, size, array)
             return unflatten((type_(elem) for elem in array), known_size)
     else:
@@ -177,7 +177,7 @@ def _get_vector(param_id, type_=int, flattened=False, known_size=None):
 
         def getter(self):
             size = sizer()
-            array = (c_pointer * size)()
+            array = (c_itemtype * size)()
             getv_fn(param_id, size, array)
             return tuple(type_(elem) for elem in array)
 
@@ -211,20 +211,20 @@ def _set_vector(param_id, type_=int, flattened=False, known_size=None):
 
     '''
     # Get the native function and pointer type needed.
-    setv_fn, c_pointer = ((vgSetfv, c_float_p) if type_ is float else
-                          (vgSetiv, c_int_p))
+    setv_fn, c_itemtype = ((vgSetfv, c_float) if type_ is float else
+                           (vgSetiv, c_int))
 
     # Construct the setter function, with the above details baked in.
     if flattened:
         def setter(self, val):
             flat = flatten(val, known_size)
             size = len(flat)
-            array = (c_pointer * size)(*flat)
+            array = (c_itemtype * size)(*flat)
             setv_fn(param_id, size, array)
     else:
         def setter(self, val):
             size = len(val)
-            array = (c_pointer * size)(*val)
+            array = (c_itemtype * size)(*val)
             setv_fn(param_id, size, array)
 
     return setter
@@ -347,10 +347,8 @@ def _getsetv(param, name, values, type_=int, flattened=False, known_size=None):
 
     '''
     param_id = _params[param]
-    return property(fget=lambda self: _get_vector(param_id, type_, flattened,
-                                                  known_size),
-                    fset=lambda self: _set_vector(param_id, type_, flattened,
-                                                  known_size),
+    return property(fget=_get_vector(param_id, type_, flattened, known_size),
+                    fset=_set_vector(param_id, type_, flattened, known_size),
                     doc=('The {}.\n\n'
                          '    Legal values are {}.\n'.format(name, values)))
 
