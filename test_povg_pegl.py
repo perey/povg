@@ -25,6 +25,8 @@ case in Pegl.
 # You should have received a copy of the GNU General Public License
 # along with Povg. If not, see <http://www.gnu.org/licenses/>.
 
+import time
+
 from povg.clip import clear
 from povg.context.egl import EGLContext, WindowSurface
 from povg.paint import Paint, RGBAColor
@@ -32,13 +34,15 @@ from povg.path import Path
 
 from Xlib import X, display as Xdisplay
 
+FRAMERATE = 30
+
 ctx = EGLContext()
-ctx.clear_color = ((0.0, 0.0, 0.0, 1.0))
+ctx.clear_color = ((1.0, 1.0, 1.0, 0.5))
 
 black = Paint()
-black.color = RGBAColor(0, 0, 0, 255)
+black.color = RGBAColor(0, 0, 0, 127)
 white = Paint()
-white.color = RGBAColor(255, 255, 255, 255)
+white.color = RGBAColor(255, 255, 255, 127)
 
 class TestApp:
     '''A bare-bones X11 window.'''
@@ -58,6 +62,7 @@ class TestApp:
 
         self.surface = WindowSurface(ctx.display, ctx.config, {},
                                      self.window.id)
+        ctx.make_current(draw_surface=self.surface)
         self.path = Path()
         with self.path.queue_segments():
             self.path.vline_to(100, False)
@@ -68,13 +73,15 @@ class TestApp:
         self.window.map()
 
     def loop(self):
-        global black, white
+        global ctx, black, white
 
         while True:
+            ctx.make_current(draw_surface=self.surface)
             clear((0, 0), 640, 480)
             black.set_stroke()
             white.set_fill()
             self.path.draw()
+            self.surface.swap_buffers()
 
             ev = self.Xdisplay.next_event()
 
@@ -84,6 +91,11 @@ class TestApp:
                 fmt, data = ev.data
                 if fmt == 32 and data[0] == self.DELETE_WINDOW:
                     raise SystemExit()
+
+            self.sleep()
+
+    def sleep(self):
+        time.sleep(1 / FRAMERATE)
 
 
 if __name__ == '__main__':
