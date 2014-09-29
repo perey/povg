@@ -277,7 +277,7 @@ class Params:
         '''
         # Convert a name into a value.
         try:
-            value = cls.__getattr__(value_or_name)
+            value = getattr(cls, value_or_name)
         except AttributeError:
             value = value_or_name
         # Allow a KeyError to propagate upwards.
@@ -367,8 +367,8 @@ class PathParams(Params):
     details = {FORMAT: Details('The command format of the path', PathFormats,
                                PathFormats.STANDARD),
                DATATYPE: Details('The data type used to store coordinates on '
-                                 'this path', PathDataTypes,
-                                 PathDataTypes.S_32),
+                                 'this path', PathDatatypes,
+                                 PathDatatypes.S_32),
                SCALE: Details('The scale factor applied to all coordinates on '
                               'this path', c_float, 1.0),
                BIAS: Details('The offset from zero applied to all coordinates '
@@ -380,7 +380,7 @@ class PathParams(Params):
 
 
 # Parameters for paint objects.
-PaintTypes = namedtuple('PaintType_tuple', ('COLOR', 'LINEAR_GRADIENT',
+PaintTypes = namedtuple('PaintTypes_tuple', ('COLOR', 'LINEAR_GRADIENT',
                                             'RADIAL_GRADIENT', 'PATTERN')
                         )(*range(0x1b00, 0x1b04))
 SpreadModes = namedtuple('SpreadModes_tuple', ('PAD', 'REPEAT', 'REFLECT')
@@ -395,8 +395,8 @@ class PaintParams(Params):
     (TYPE, COLOR, COLOR_RAMP_SPREAD_MODE, COLOR_RAMP_SPREAD_STOPS,
      LINEAR_GRADIENT, RADIAL_GRADIENT, PATTERN_TILING_MODE,
      COLOR_RAMP_PREMULTIPLIED) = range(0x1a00, 0x1a08)
-    details = {TYPE: Details('The type of paint to apply', PaintType,
-                             PaintType.COLOR),
+    details = {TYPE: Details('The type of paint to apply', PaintTypes,
+                             PaintTypes.COLOR),
                COLOR: Details('The RGBA paint colour, if the paint type is '
                               'solid colour', c_float4, (0.0, 0.0, 0.0, 1.0)),
                COLOR_RAMP_SPREAD_MODE: Details('What to do after the end of '
@@ -409,7 +409,7 @@ class PaintParams(Params):
                                                 'offset position and RGBA '
                                                 'colour of each colour ramp '
                                                 'stop', c_float_p,
-                                                c_float_p(())),
+                                                c_float_p()),
                COLOR_RAMP_PREMULTIPLIED: Details('Whether or not the colour '
                                                  'ramp stops have been '
                                                  'premultiplied with alpha',
@@ -456,7 +456,7 @@ ImageFormats = namedtuple('ImageFormats_tuple', ('sRGBX_8888', 'sRGBA_8888',
                                                  'lABGR_8888_PRE')
                           )(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14,
                             64, 65, 66, 68, 69, 71, 72, 73,
-                            128, 129, 130, 131, 132, 133, 134, 135, 136, 137,
+                            128, 129, 130, 131, 132, 133, 135, 136, 137,
                             192, 193, 194, 196, 197, 199, 200, 201)
 # TODO: Consider replacing this with a structured bit-format object, if you can
 # create one that isn't so hideously overblown that it looks like it should be
@@ -467,7 +467,7 @@ class ImageParams(Params):
     '''The set of OpenVG parameters relevant to image objects.'''
     FORMAT, WIDTH, HEIGHT = range(0x1e00, 0x1e03)
     details = {FORMAT: Details('The pixel format and colour space of this '
-                               'image',ImageFormats, ImageFormats.sRGBA_8888)
+                               'image',ImageFormats, ImageFormats.sRGBA_8888),
                WIDTH: Details('The width of this image, in pixels', c_int, 0),
                HEIGHT: Details('The height of this image, in pixels', c_int, 0)
                }

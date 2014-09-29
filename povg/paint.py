@@ -42,13 +42,10 @@ class RGBAColor(namedtuple('RGBAColor_base', ('r', 'g', 'b', 'a'))):
 
     def __int__(self):
         '''Convert to a 32-bit integer.'''
-        self.clamp()
-        return (self.r * self.RED_BYTE + self.g * self.GREEN_BYTE +
-                self.b * self.BLUE_BYTE + self.a * self.ALPHA_BYTE)
-
-    def clamp(self):
-        '''Ensure values are clamped to the correct range.'''
-        self.r, self.g, self.b, self.a = (clamp_8bit(comp) for comp in self)
+        return (clamp_8bit(self.r) * self.RED_BYTE +
+                clamp_8bit(self.g) * self.GREEN_BYTE +
+                clamp_8bit(self.b) * self.BLUE_BYTE +
+                clamp_8bit(self.a) * self.ALPHA_BYTE)
 
 
 # Paint modes.
@@ -97,9 +94,20 @@ class Paint:
         pthandle -- The foreign object handle for this path.
 
     '''
-    def __init__(self):
-        '''Initialise the paint object.'''
-        self.pthandle = native.vgCreatePaint()
+    def __init__(self, pthandle=None):
+        '''Initialise the paint object.
+
+        Keyword arguments:
+            pthandle -- As the instance attribute. If provided, the new
+                Paint object will be a reference to the existing OpenVG
+                object indicated by the pthandle value. If omitted, a
+                new OpenVG object is created.
+
+        '''
+        self.pthandle = (native.vgCreatePaint() if pthandle is None else
+                         pthandle)
+        # TODO: Allow creation directly from four colour values or an
+        # RGBAColor instance.
 
     def __del__(self):
         '''Call the native cleanup function.'''
@@ -125,12 +133,13 @@ class Paint:
 
     @property
     def color(self):
-        '''Get the colour as RGBA values in the range [0, 255].'''
+        '''Get the colour as an RGBAColor instance.'''
         return RGBAColor.from_int(native.vgGetColor(self))
     @color.setter
     def color(self, values):
-        '''Set the colour from four RGBA values in the range [0, 255].'''
-        native.vgSetColor(self, int(RGBAColor(*values)))
+        '''Set the colour from an RGBAColor instance or the RGBA values.'''
+        native.vgSetColor(self, int(values[0] if len(values) == 1
+                                    else RGBAColor(*values)))
 
     def _get_param(self, param):
         '''Get the value of a paint parameter.

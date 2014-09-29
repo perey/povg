@@ -45,7 +45,8 @@ __all__ = ['vgFlush', 'vgFinish', 'vgSetf', 'vgSeti', 'vgSetfv', 'vgSetiv',
            # Native types reusable in extension modules.
            'c_ibool', 'c_enum', 'c_bitfield', 'c_handle', 'c_float2',
            'c_ubyte_p', 'c_short_p', 'c_int_p', 'c_uint_p', 'c_float_p',
-           'INVALID_HANDLE']
+           'INVALID_HANDLE',
+           'make_float_p', 'to_array']
 
 # Standard library imports.
 import ctypes
@@ -88,6 +89,10 @@ def make_float_p(fval=0.0):
     p = c_float_p()
     p.contents = c_float(fval)
     return p
+
+# Convenience method for constructing arrays. Alas, simply passing a sequence
+# type isn't possible...
+to_array = lambda arr_type, seq: (arr_type * len(seq))(*seq)
 
 # Trap OpenVG errors. We set the argument and return types for
 # "VGErrorCode vgGetError(void)" here, since we use it for error_check.

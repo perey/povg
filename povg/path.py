@@ -20,11 +20,12 @@
 # Standard library imports.
 from collections import namedtuple
 from contextlib import contextmanager
-from ctypes import c_float
+from ctypes import c_float, c_ubyte, c_ushort, c_ulong
 from itertools import chain
 
 # Local imports.
 from . import native, OpenVGError
+from .native import to_array
 from .params import (PathFormats, PathDatatypes, PathCapabilities, PathParams,
                      param_convert, native_getter)
 from .paint import PaintModes, kwargs_to_modes
@@ -47,12 +48,18 @@ def SegmentCommand(segment_type, is_absolute=True):
 
     Keyword arguments:
         segment_type -- The type of segment. A value from the
-            PathSegments named tuple.
+            PathSegments named tuple, or a name of one of its members.
         is_absolute -- Whether or not this command is using absolute
             instead of relative coordinates. Defaults to true.
 
     '''
-    # TODO: Accept segment type by name.
+    # Is segment_type a name or a number?
+    try:
+        segment_type = int(segment_type)
+    except ValueError:
+        # It's a name. If it's an invalid name, the resulting AttributeError
+        # will be allowed to propagate upwards.
+        segment_type = getattr(PathSegments, segment_type)
     return 2 * segment_type + (0 if is_absolute else 1)
 
 # The centrepiece of the module, the big massive Path class itself.
@@ -139,28 +146,28 @@ class Path:
         '''
         # If param is not a known parameter type, PathParams.details[param]
         # will raise a KeyError, which we allow to propagate upwards.
-        get_fn = native_getter(PathParams.details[param].values)
+        get_fn = native_getter(PathParams.details[param])
         return param_convert(param, get_fn(self, param), PathParams)
 
     @property
     def path_format(self):
         '''Get the actual path format reported by OpenVG.'''
-        return _get_param(PathParams.FORMAT)
+        return self._get_param(PathParams.FORMAT)
 
     @property
     def datatype(self):
         '''Get the actual coordinate data type reported by OpenVG.'''
-        return _get_param(PathParams.DATATYPE)
+        return self._get_param(PathParams.DATATYPE)
 
     @property
     def scale(self):
         '''Get the scale value being used by OpenVG.'''
-        return _get_param(PathParams.SCALE)
+        return self._get_param(PathParams.SCALE)
 
     @property
     def bias(self):
         '''Get the bias value being used by OpenVG.'''
-        return _get_param(PathParams.BIAS)
+        return self._get_param(PathParams.BIAS)
 
     @property
     def num_segments(self): # TODO: Doesn't seem very Pythonic.
@@ -170,12 +177,12 @@ class Path:
         len() function.
 
         '''
-        return _get_param(PathParams.NUM_SEGMENTS)
+        return self._get_param(PathParams.NUM_SEGMENTS)
 
     @property
     def num_coords(self): # TODO: Ditto.
         '''Get the current number of coordinates in this path.'''
-        return _get_param(PathParams.NUM_COORDS)
+        return self._get_param(PathParams.NUM_COORDS)
 
     @property
     def capabilities(self):
@@ -195,7 +202,14 @@ class Path:
                 commands.
 
         '''
-        native.vgAppendPathData(self, len(commands), commands, data)
+        c_data_type = {PathDatatypes.S_8: c_ubyte,
+                       PathDatatypes.S_16: c_ushort,
+                       PathDatatypes.S_32: c_ulong,
+                       PathDatatypes.F: c_float}[self.datatype]
+        arr_commands = to_array(c_ubyte, commands)
+        data_commands = to_array(c_data_type, data)
+        native.vgAppendPathData(self, len(commands), arr_commands,
+                                data_commands)
 
     def _add_segment(self, command, data):
         '''Prepare to add a new segment to this path.
@@ -557,19 +571,19 @@ class Path:
         return (x.contents.value, y.contents.value,
                 width.contents.value, height.contents.value)
 
-    def draw(self, fill=True, stroke=True):
+    def draw(self, **kwargs):
         '''Draw the path.'''
         # Do we fill the path, stroke it, or both?
-        mode = kwargs_to_modes(**kwargs)
+        mode = kwargs_to_modes(neither_as_both=True, **kwargs)
         if mode == 0:
             return # TODO: Error?
         # Draw it!
         native.vgDrawPath(self, mode)
 
-    def render_to_mask(self, mask_op, fill=True, stroke=True):
+    def render_to_mask(self, mask_op, **kwargs):
         '''Render this path to the current mask layer.'''
         # Do we fill the path, stroke it, or both?
-        mode = kwargs_to_modes(**kwargs)
+        mode = kwargs_to_modes(neither_as_both=True, **kwargs)
         if mode == 0:
             return # TODO: Error?
         # Do it!
