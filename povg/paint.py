@@ -33,9 +33,9 @@ class RGBAColor(namedtuple('RGBAColor_base', ('r', 'g', 'b', 'a'))):
     @classmethod
     def from_int(cls, rgba):
         '''Construct from a 32-bit integer.'''
-        red, gba = divmod(rgba, self.RED_BYTE)
-        green, ba = divmod(gba, self.GREEN_BYTE)
-        blue, alpha = divmod(ba, self.BLUE_BYTE)
+        red, gba = divmod(rgba, cls.RED_BYTE)
+        green, ba = divmod(gba, cls.GREEN_BYTE)
+        blue, alpha = divmod(ba, cls.BLUE_BYTE)
         # And ALPHA_BYTE == 1.
         return cls(clamp_8bit(red), clamp_8bit(green),
                    clamp_8bit(blue), clamp_8bit(alpha))
