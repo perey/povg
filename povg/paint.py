@@ -136,7 +136,7 @@ class Paint:
         '''Get the colour as an RGBAColor instance.'''
         return RGBAColor.from_int(native.vgGetColor(self))
     @color.setter
-    def color(self, values):
+    def color(self, *values):
         '''Set the colour from an RGBAColor instance or the RGBA values.'''
         native.vgSetColor(self, int(values[0] if len(values) == 1
                                     else RGBAColor(*values)))
