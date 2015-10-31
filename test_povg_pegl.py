@@ -35,14 +35,16 @@ from povg.path import Path
 from Xlib import X, display as Xdisplay
 
 FRAMERATE = 30
+WIDTH = 640
+HEIGHT = 480
 
 ctx = EGLContext()
-ctx.clear_color = ((1.0, 1.0, 1.0, 0.5))
+ctx.display.initialize()
 
 black = Paint()
-black.color = RGBAColor(0, 0, 0, 127)
+black.color = RGBAColor(255, 0, 0, 255)
 white = Paint()
-white.color = RGBAColor(255, 255, 255, 127)
+white.color = RGBAColor(0, 255, 255, 255)
 
 class TestApp:
     '''A bare-bones X11 window.'''
@@ -52,23 +54,26 @@ class TestApp:
         self.Xdisplay = dpy
         self.screen = self.Xdisplay.screen()
 
-        self.window = self.screen.root.create_window(5, 5, 640, 480, 1,
+        self.window = self.screen.root.create_window(5, 5, WIDTH, HEIGHT, 1,
                                                      self.screen.root_depth)
         self.DELETE_WINDOW = self.Xdisplay.intern_atom('WM_DELETE_WINDOW')
         self.PROTOCOLS = self.Xdisplay.intern_atom('WM_PROTOCOLS')
 
-        self.window.set_wm_name('Pegl test: X11')
+        self.window.set_wm_name('Pegl/Povg test: X11')
         self.window.set_wm_protocols((self.DELETE_WINDOW,))
 
         self.surface = WindowSurface(ctx.display, ctx.config, {},
                                      self.window.id)
         ctx.make_current(draw_surface=self.surface)
+        ctx.clear_color = ((1.0, 1.0, 1.0, 1.0))
+
         self.path = Path()
-        with self.path.queue_segments():
-            self.path.vline_to(100, False)
-            self.path.hline_to(100, False)
-            self.path.vline_to(-100, False)
-            self.path.close_path()
+##        with self.path.queue_segments():
+        self.path.move_to((100, 100))
+        self.path.vline_to(10, False)
+        self.path.hline_to(10, False)
+        self.path.vline_to(-10, False)
+        self.path.close_path()
 
         self.window.map()
 
@@ -77,20 +82,21 @@ class TestApp:
 
         while True:
             ctx.make_current(draw_surface=self.surface)
-            clear((0, 0), 640, 480)
+            clear((0, 0), WIDTH, HEIGHT)
             black.set_stroke()
             white.set_fill()
             self.path.draw()
             self.surface.swap_buffers()
 
-            ev = self.Xdisplay.next_event()
+            if self.Xdisplay.pending_events() > 0:
+                ev = self.Xdisplay.next_event()
 
-            if ev.type == X.DestroyNotify:
-                raise SystemExit()
-            elif ev.type == X.ClientMessage:
-                fmt, data = ev.data
-                if fmt == 32 and data[0] == self.DELETE_WINDOW:
+                if ev.type == X.DestroyNotify:
                     raise SystemExit()
+                elif ev.type == X.ClientMessage:
+                    fmt, data = ev.data
+                    if fmt == 32 and data[0] == self.DELETE_WINDOW:
+                        raise SystemExit()
 
             self.sleep()
 
