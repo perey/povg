@@ -94,7 +94,7 @@ class Paint:
         pthandle -- The foreign object handle for this path.
 
     '''
-    def __init__(self, pthandle=None):
+    def __init__(self, pthandle=None, **kwargs):
         '''Initialise the paint object.
 
         Keyword arguments:
@@ -103,11 +103,16 @@ class Paint:
                 object indicated by the pthandle value. If omitted, a
                 new OpenVG object is created.
 
+        Keyword-only arguments:
+            color -- Initialise this paint object with the given colour,
+                which must be an RGBAColor instance, a 32-bit integer,
+                or a four-element sequence.
+
         '''
         self.pthandle = (native.vgCreatePaint() if pthandle is None else
                          pthandle)
-        # TODO: Allow creation directly from four colour values or an
-        # RGBAColor instance.
+        if 'color' in kwargs:
+            self.color = kwargs['color']
 
     def __del__(self):
         '''Call the native cleanup function.'''
