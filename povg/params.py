@@ -69,17 +69,32 @@ def native_fn(details, getter):
     if details.values is c_float:
         return functions['f']
     else:
-        # Is it a vector type?
+        # Is it a ctypes type?
         try:
-            array_type = details.values._type_
+            # ctypes array types have their constituent type as their _type_
+            # attribute. Other ctypes types have a string (namely 'f' or 'i')
+            # that indicates their type. Non-ctypes types (like namedtuples)
+            # don't have a _type_ attribute at all.
+            ctypes_type = details.values._type_
         except AttributeError:
-            # No, it's not.
-            pass
+            # No, it's not. Everything else is an integer (or handled as one,
+            # like booleans).
+            return functions['i']
         else:
-            return (functions['fv'] if array_type is c_float else
-                    functions['iv'])
-    # Everything else is an integer (or handled as one, like booleans).
-    return functions['i']
+            # Yes, it is. Is it a vector type?
+            if str(ctypes_type) == ctypes_type:
+                # No. Is there a particular handler for its type?
+                fn = functions.get(ctypes_type)
+                if fn is None:
+                    # No. Again, everything else is handled like an integer.
+                    fn = functions['i']
+                return fn
+            else:
+                # Yes. Use the float vector function for vectors of c_float,
+                # and the int vector function for all other vectors.
+                return (functions['fv'] if array_type is c_float else
+                        functions['iv'])
+
 native_getter = lambda details: native_fn(details, getter=True)
 native_setter = lambda details: native_fn(details, getter=False)
 
