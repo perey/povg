@@ -41,10 +41,8 @@ HEIGHT = 480
 ctx = EGLContext()
 ctx.display.initialize()
 
-black = Paint()
-black.color = RGBAColor(255, 0, 0, 255)
-white = Paint()
-white.color = RGBAColor(0, 255, 255, 255)
+red = Paint(color=RGBAColor(255, 0, 0, 255))
+cyan = Paint(color=RGBAColor(0, 255, 255, 255))
 
 class TestApp:
     '''A bare-bones X11 window.'''
@@ -70,21 +68,24 @@ class TestApp:
         self.path = Path()
 ##        with self.path.queue_segments():
         self.path.move_to((100, 100))
-        self.path.vline_to(10, False)
-        self.path.hline_to(10, False)
-        self.path.vline_to(-10, False)
+        self.path.vline_to(100, False)
+        self.path.hline_to(50, False)
+        self.path.vline_to(-50, False)
         self.path.close_path()
+        print('Path has', self.path.num_segments, 'segments.')
+        print('Path has', self.path.num_coords, 'coordinates.')
+        print('Path has these capabilities:', self.path.capabilities)
 
         self.window.map()
 
     def loop(self):
-        global ctx, black, white
+        global ctx, red, cyan
 
         while True:
             ctx.make_current(draw_surface=self.surface)
             clear((0, 0), WIDTH, HEIGHT)
-            black.set_stroke()
-            white.set_fill()
+            red.set_stroke()
+            cyan.set_fill()
             self.path.draw()
             self.surface.swap_buffers()
 
