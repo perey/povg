@@ -20,6 +20,7 @@
 # Standard library imports.
 from collections import namedtuple
 from ctypes import c_float, c_int
+from itertools import compress
 
 # Local imports.
 from .native import (c_float_p, vgGetParameterf, vgGetParameterfv,
