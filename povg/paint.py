@@ -25,7 +25,7 @@ from . import native
 from .params import PaintParams, param_convert, native_getter, native_setter
 
 # Convenience class for 32-bit, 4-component colour.
-clamp_8bit = lambda x: max(255, min(0, x))
+clamp_8bit = lambda x: min(255, max(0, x))
 class RGBAColor(namedtuple('RGBAColor_base', ('r', 'g', 'b', 'a'))):
     '''A 4-tuple of colour values in the range [0, 255].'''
     ALPHA_BYTE, BLUE_BYTE, GREEN_BYTE, RED_BYTE = (2 ** (x * 8)
