@@ -61,6 +61,7 @@ class TestApp:
                                      self.window.id)
         ctx.make_current(draw_surface=self.surface)
         ctx.clear_color = ((1.0, 1.0, 1.0, 1.0))
+        ctx.stroke_line_width = 3.0
 
         self.fill = Paint(color=RGBAColor(0, 255, 0, 127))
         self.fill.set_fill()
@@ -68,15 +69,12 @@ class TestApp:
         self.stroke.set_stroke()
 
         self.path = Path()
-##        with self.path.queue_segments():
-        self.path.move_to((100, 100))
-        self.path.vline_to(100, False)
-        self.path.hline_to(50, False)
-        self.path.vline_to(-50, False)
-        self.path.close_path()
-        print('Path has', self.path.num_segments, 'segments.')
-        print('Path has', self.path.num_coords, 'coordinates.')
-        print('Path has these capabilities:', self.path.capabilities)
+        with self.path.queue_segments():
+            self.path.move_to((100, 100))
+            self.path.vline_to(100, False)
+            self.path.hline_to(100, False)
+            self.path.line_to((-50, -75), False)
+            self.path.close_path()
 
         self.window.map()
 
