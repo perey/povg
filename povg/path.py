@@ -20,7 +20,7 @@
 # Standard library imports.
 from collections import namedtuple
 from contextlib import contextmanager
-from ctypes import c_float, c_ubyte, c_ushort, c_ulong
+from ctypes import c_float, c_ubyte, c_int8, c_int16, c_int32
 from itertools import chain
 
 # Local imports.
@@ -202,9 +202,9 @@ class Path:
                 commands.
 
         '''
-        c_data_type = {PathDatatypes.S_8: c_ubyte,
-                       PathDatatypes.S_16: c_ushort,
-                       PathDatatypes.S_32: c_ulong,
+        c_data_type = {PathDatatypes.S_8: c_int8,
+                       PathDatatypes.S_16: c_int16,
+                       PathDatatypes.S_32: c_int32,
                        PathDatatypes.F: c_float}[self.datatype]
         arr_commands = to_array(c_ubyte, commands)
         data_commands = to_array(c_data_type, data)
