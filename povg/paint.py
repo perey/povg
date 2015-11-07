@@ -118,7 +118,11 @@ class Paint:
 
     def __del__(self):
         '''Call the native cleanup function.'''
-        native.vgDestroyPaint(self)
+        # FIXME: Multiple paint objects may possess the same pthandle (e.g.
+        # when calling current_paint(). Destroying one (even through garbage
+        # collection) invalidates them all! Segfaults abound.
+##        native.vgDestroyPaint(self)
+        pass
 
     def __eq__(self, other):
         '''Compare two paint objects for equivalence.
