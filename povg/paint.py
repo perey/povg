@@ -85,7 +85,8 @@ def current_paint(**kwargs):
 
     # Use None in the case where no paint is set. (INVALID_HANDLE is also
     # returned on error, but an exception ought to have been raised for that.)
-    return (None if current == native.INVALID_HANDLE else current)
+    return (None if current == native.INVALID_HANDLE else
+            Paint(pthandle=current))
 
 class Paint:
     '''Represents an OpenVG paint object.
@@ -111,6 +112,7 @@ class Paint:
         '''
         self.pthandle = (native.vgCreatePaint() if pthandle is None else
                          pthandle)
+        # TODO: This should probably be the default argument, not pthandle.
         if 'color' in kwargs:
             self.color = kwargs['color']
 
