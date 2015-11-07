@@ -29,6 +29,7 @@ import time
 
 from povg.clip import clear
 from povg.context.egl import EGLContext, WindowSurface
+from povg.matrix import Matrix
 from povg.paint import Paint, RGBAColor
 from povg.path import Path
 
@@ -77,6 +78,9 @@ class TestApp:
             self.path.line_to((-50, -75), False)
             self.path.close_path()
 
+        self.transform = Matrix()
+        self.pos, self.max_pos, self.step = 0, 200, 2
+
         self.window.map()
 
     def loop(self):
@@ -85,6 +89,13 @@ class TestApp:
         while True:
             ctx.make_current(draw_surface=self.surface)
             clear((0, 0), WIDTH, HEIGHT)
+
+            if (self.step > 0 and self.pos >= self.max_pos or
+                self.step < 0 and self.pos <= 0):
+                self.step = -self.step
+            self.pos += self.step
+            self.transform.translate(tx=self.step)
+
             self.path.draw()
             self.surface.swap_buffers()
 
