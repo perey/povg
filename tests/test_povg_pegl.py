@@ -41,9 +41,6 @@ HEIGHT = 480
 ctx = EGLContext()
 ctx.display.initialize()
 
-red = Paint(color=RGBAColor(255, 0, 0, 255))
-cyan = Paint(color=RGBAColor(0, 255, 255, 255))
-
 class TestApp:
     '''A bare-bones X11 window.'''
     def __init__(self, dpy):
@@ -65,6 +62,11 @@ class TestApp:
         ctx.make_current(draw_surface=self.surface)
         ctx.clear_color = ((1.0, 1.0, 1.0, 1.0))
 
+        self.fill = Paint(color=RGBAColor(0, 255, 0, 127))
+        self.fill.set_fill()
+        self.stroke = Paint(color=RGBAColor(0, 0, 0, 255))
+        self.stroke.set_stroke()
+
         self.path = Path()
 ##        with self.path.queue_segments():
         self.path.move_to((100, 100))
@@ -84,8 +86,6 @@ class TestApp:
         while True:
             ctx.make_current(draw_surface=self.surface)
             clear((0, 0), WIDTH, HEIGHT)
-            red.set_stroke()
-            cyan.set_fill()
             self.path.draw()
             self.surface.swap_buffers()
 
