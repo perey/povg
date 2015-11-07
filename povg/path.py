@@ -487,7 +487,7 @@ class Path:
             # Else two radii, just as expected.
 
         self._add_segment(SegmentCommand(command, is_absolute=is_absolute),
-                          chain(radii, (rot,), pos))
+                          chain(radii, (rotation,), pos))
 
     def modify_path(self, start, length, data):
         '''Modify existing path data for one or more segments.'''

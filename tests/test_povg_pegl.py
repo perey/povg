@@ -71,7 +71,8 @@ class TestApp:
         self.path = Path()
         with self.path.queue_segments():
             self.path.move_to((100, 100))
-            self.path.vline_to(100, False)
+            self.path.arc_to((50, 50), 0, (0, 100), is_clockwise=True,
+                             is_absolute=False)
             self.path.hline_to(100, False)
             self.path.line_to((-50, -75), False)
             self.path.close_path()
