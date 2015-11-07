@@ -51,7 +51,7 @@ class RGBAColor(namedtuple('RGBAColor_base', ('r', 'g', 'b', 'a'))):
 # Paint modes.
 # TODO: Bitmask?
 PaintModes = namedtuple('PaintModes_tuple',
-                        ('FILL', 'STROKE')
+                        ('STROKE', 'FILL')
                         )(1, 2)
 def kwargs_to_modes(neither_as_both=False, **kwargs):
     '''Get fill and/or stroke paint modes from keyword arguments.'''
